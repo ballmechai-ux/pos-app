@@ -523,10 +523,9 @@ function startScanner(kind){
     inputStream: {
       type:"LiveStream",
       target: viewport,
-      constraints: getCameraConstraints(),
-      area: { top:"15%", right:"5%", left:"5%", bottom:"15%" }
+      constraints: getCameraConstraints()
     },
-    locator: { patchSize:"large", halfSample:false },
+    locator: { patchSize:"medium", halfSample:false },
     numOfWorkers: 0,
     frequency: 10,
     decoder: { readers:["ean_reader","ean_8_reader","code_128_reader","upc_reader","upc_e_reader"], multiple:false },
