@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ระบบร้านค้า - สต็อก/ขาย/กำไร</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
   body {
@@ -292,7 +293,7 @@
     <div class="field">
       <label>บาร์โค้ด</label>
       <div style="display:flex; gap:6px;">
-        <input type="text" id="pBarcode" placeholder="สแกนหรือพิมพ์เลข 13 หลัก" style="flex:1;" inputmode="numeric" maxlength="13">
+        <input type="text" id="pBarcode" placeholder="สแกน (บาร์โค้ด/QR) หรือพิมพ์เอง" style="flex:1;" maxlength="64">
         <button class="btn-flat" id="scanForProductBtn" style="flex-shrink:0;">📷</button>
       </div>
       <div id="scannerViewportProduct" style="height:0; padding-bottom:56%; display:none; margin-top:8px;"></div>
@@ -486,6 +487,8 @@ function renderStockList(){
 
 // ================= SCANNER (shared logic) =================
 let scannerState = { scan:false, importP:false, product:false };
+const qrIntervals = {};
+const qrLastSeen = {};
 let videoDevices = [];
 let currentDeviceIndex = 0;
 const CAM_PREF_KEY = 'pos_preferred_camera_id';
@@ -528,7 +531,7 @@ function startScanner(kind){
     locator: { patchSize:"medium", halfSample:false },
     numOfWorkers: 0,
     frequency: 10,
-    decoder: { readers:["ean_reader","ean_8_reader","code_128_reader","upc_reader","upc_e_reader"], multiple:false },
+    decoder: { readers:["ean_reader"], multiple:false },
     locate:true
   }, function(err){
     if(err){
@@ -543,23 +546,63 @@ function startScanner(kind){
     guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
     viewport.style.position = 'relative';
     viewport.appendChild(guide);
+    startQrLoop(kind, viewport);
     refreshVideoDevices().then(()=>{
       if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
       if(kind==='importP') document.getElementById('switchCamImportBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
     });
   });
 
-  let lastCode=null, lastTime=0;
+  let confirmCode=null, confirmCount=0, lastAccepted=null, lastAcceptedTime=0;
   Quagga.onDetected(function(data){
     if(!scannerState[kind]) return;
     const code = data.codeResult.code;
+    if(!/^\d{13}$/.test(code)) return; // รับเฉพาะบาร์โค้ดมาตรฐานสากล EAN-13 (13 หลัก) เท่านั้น
     const now = Date.now();
-    if(code===lastCode && now-lastTime<1500) return;
-    lastCode=code; lastTime=now;
+    if(code === confirmCode){
+      confirmCount++;
+    } else {
+      confirmCode = code;
+      confirmCount = 1;
+    }
+    if(confirmCount < 2) return; // ต้องอ่านได้ค่าเดิมซ้ำก่อนถึงยอมรับ ลดการอ่านเพี้ยน
+    if(code === lastAccepted && now - lastAcceptedTime < 1500) return;
+    lastAccepted = code;
+    lastAcceptedTime = now;
+    confirmCode = null; confirmCount = 0;
     handleScanResult(kind, code);
   });
 }
+function startQrLoop(kind, viewport){
+  if(typeof jsQR === 'undefined') return;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  qrLastSeen[kind] = { code:null, time:0 };
+  qrIntervals[kind] = setInterval(()=>{
+    if(!scannerState[kind]) return;
+    const video = viewport.querySelector('video');
+    if(!video || video.readyState !== video.HAVE_ENOUGH_DATA || !video.videoWidth) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    let imageData;
+    try{ imageData = ctx.getImageData(0,0,canvas.width, canvas.height); } catch(e){ return; }
+    const result = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:"dontInvert" });
+    if(result && result.data){
+      const code = result.data.trim();
+      const now = Date.now();
+      const last = qrLastSeen[kind];
+      if(code===last.code && now-last.time<1500) return;
+      qrLastSeen[kind] = { code, time: now };
+      handleScanResult(kind, code);
+    }
+  }, 350);
+}
+function stopQrLoop(kind){
+  if(qrIntervals[kind]){ clearInterval(qrIntervals[kind]); delete qrIntervals[kind]; }
+}
 function stopScanner(kind){
+  stopQrLoop(kind);
   if(!scannerState[kind]) { 
     const map={scan:'scannerViewport',importP:'scannerViewportImport',product:'scannerViewportProduct'};
     const v = document.getElementById(map[kind]);
@@ -647,7 +690,7 @@ async function lookupBarcode(code){
 }
 
 async function autoLookupAndFill(code){
-  if(!code || code.length < 8){ return; }
+  if(!code || code.length < 4){ return; }
   const statusEl = document.getElementById('lookupStatus');
   statusEl.style.display = 'block';
   statusEl.textContent = '🔎 กำลังค้นหาข้อมูลสินค้าจากเลข ' + code + ' ...';
