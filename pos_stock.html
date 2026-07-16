@@ -55,8 +55,21 @@
   .row-btns { display:flex; gap:8px; margin-bottom:10px; }
   .row-btns .btn-flat { flex:1; text-align:center; }
 
-  #scannerViewport { position:relative; width:100%; border-radius:14px; overflow:hidden; background:#000; }
-  #scannerViewport video, #scannerViewport canvas { width:100%; display:block; }
+  #scannerViewport, #scannerViewportImport, #scannerViewportProduct {
+    position:relative !important;
+    width:100%;
+    height:auto !important;
+    aspect-ratio:4/3;
+    padding-bottom:0 !important;
+    overflow:hidden;
+    border-radius:14px;
+    background:#000;
+  }
+  #scannerViewport video, #scannerViewport canvas,
+  #scannerViewportImport video, #scannerViewportImport canvas,
+  #scannerViewportProduct video, #scannerViewportProduct canvas {
+    position:absolute; inset:0; width:100% !important; height:100% !important; object-fit:cover; display:block;
+  }
   .scan-hint { text-align:center; font-size:12px; opacity:.65; margin-top:6px; }
 
   .prod-item, .tx-item {
@@ -162,6 +175,7 @@
       <div class="btn-flat btn-green" id="startScanBtn" style="flex:1">📷 เปิดกล้องสแกน</div>
       <div class="btn-flat btn-red" id="stopScanBtn" style="flex:1; display:none;">⏹ ปิดกล้อง</div>
     </div>
+    <div class="btn-flat" id="switchCamBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
     <div class="scan-hint" id="scanHint">กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า</div>
     <div class="field" style="margin-top:10px;">
       <label>หรือค้นหา/เลือกสินค้าด้วยมือ</label>
@@ -199,6 +213,7 @@
       <div class="btn-flat btn-green" id="startScanImportBtn" style="flex:1">📷 สแกนสินค้า</div>
       <div class="btn-flat btn-red" id="stopScanImportBtn" style="flex:1; display:none;">⏹ ปิดกล้อง</div>
     </div>
+    <div class="btn-flat" id="switchCamImportBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
     <div class="field" style="margin-top:10px;">
       <label>เลือกสินค้า</label>
       <select id="importProductSelect"><option value="">-- เลือกสินค้า --</option></select>
@@ -471,6 +486,29 @@ function renderStockList(){
 
 // ================= SCANNER (shared logic) =================
 let scannerState = { scan:false, importP:false, product:false };
+let videoDevices = [];
+let currentDeviceIndex = 0;
+const CAM_PREF_KEY = 'pos_preferred_camera_id';
+
+async function refreshVideoDevices(){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter(d=>d.kind==='videoinput');
+    const savedId = localStorage.getItem(CAM_PREF_KEY);
+    if(savedId){
+      const idx = videoDevices.findIndex(d=>d.deviceId===savedId);
+      if(idx>-1) currentDeviceIndex = idx;
+    }
+  }catch(e){ videoDevices = []; }
+}
+
+function getCameraConstraints(){
+  const savedId = localStorage.getItem(CAM_PREF_KEY);
+  if(savedId){
+    return { deviceId:{ exact: savedId }, width:{ideal:1280}, height:{ideal:720}, advanced:[{focusMode:"continuous"}] };
+  }
+  return { facingMode:"environment", width:{ideal:1280}, height:{ideal:720}, advanced:[{focusMode:"continuous"}] };
+}
 
 function startScanner(kind){
   let viewportId, targetSelector;
@@ -485,8 +523,8 @@ function startScanner(kind){
     inputStream: {
       type:"LiveStream",
       target: viewport,
-      constraints: { facingMode:"environment", width:{ideal:1280}, height:{ideal:720}, aspectRatio:{ideal:1.777} },
-      area: { top:"20%", right:"10%", left:"10%", bottom:"20%" }
+      constraints: getCameraConstraints(),
+      area: { top:"15%", right:"5%", left:"5%", bottom:"15%" }
     },
     locator: { patchSize:"large", halfSample:false },
     numOfWorkers: 0,
@@ -503,9 +541,13 @@ function startScanner(kind){
     Quagga.start();
     scannerState[kind] = true;
     const guide = document.createElement('div');
-    guide.style.cssText = 'position:absolute; top:20%; bottom:20%; left:10%; right:10%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
+    guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
     viewport.style.position = 'relative';
     viewport.appendChild(guide);
+    refreshVideoDevices().then(()=>{
+      if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+      if(kind==='importP') document.getElementById('switchCamImportBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+    });
   });
 
   let lastCode=null, lastTime=0;
@@ -534,8 +576,10 @@ function stopAllScanners(){
   ['scan','importP','product'].forEach(k=>{ if(scannerState[k]) stopScanner(k); });
   document.getElementById('startScanBtn').style.display='inline-block';
   document.getElementById('stopScanBtn').style.display='none';
+  document.getElementById('switchCamBtn').style.display='none';
   document.getElementById('startScanImportBtn').style.display='inline-block';
   document.getElementById('stopScanImportBtn').style.display='none';
+  document.getElementById('switchCamImportBtn').style.display='none';
 }
 
 function handleScanResult(kind, code){
@@ -637,6 +681,7 @@ document.getElementById('stopScanBtn').addEventListener('click', ()=>{
   stopScanner('scan');
   document.getElementById('startScanBtn').style.display='inline-block';
   document.getElementById('stopScanBtn').style.display='none';
+  document.getElementById('switchCamBtn').style.display='none';
   document.getElementById('scanHint').textContent = 'กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า';
 });
 document.getElementById('startScanImportBtn').addEventListener('click', ()=>{
@@ -648,10 +693,24 @@ document.getElementById('stopScanImportBtn').addEventListener('click', ()=>{
   stopScanner('importP');
   document.getElementById('startScanImportBtn').style.display='inline-block';
   document.getElementById('stopScanImportBtn').style.display='none';
+  document.getElementById('switchCamImportBtn').style.display='none';
 });
 document.getElementById('scanForProductBtn').addEventListener('click', ()=>{
   startScanner('product');
 });
+
+async function switchCamera(kind){
+  if(!videoDevices.length){ await refreshVideoDevices(); }
+  if(videoDevices.length < 2){ toast('พบกล้องแค่ตัวเดียว'); return; }
+  currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+  const chosen = videoDevices[currentDeviceIndex];
+  localStorage.setItem(CAM_PREF_KEY, chosen.deviceId);
+  toast('สลับกล้อง: ' + (chosen.label || 'กล้อง ' + (currentDeviceIndex+1)));
+  stopScanner(kind);
+  startScanner(kind);
+}
+document.getElementById('switchCamBtn').addEventListener('click', ()=>switchCamera('scan'));
+document.getElementById('switchCamImportBtn').addEventListener('click', ()=>switchCamera('importP'));
 
 // ================= CART / SALE =================
 function addToCart(product, qty){
