@@ -121,16 +121,23 @@
   .search-box { margin-bottom:10px; }
 
   .receipt-box {
-    background:#fff; color:#111; border-radius:10px; padding:18px 16px;
-    font-family:'Courier New', monospace; font-size:13px;
+    background:#fff; color:#111; border-radius:4px; padding:20px 18px;
+    font-family:'Courier New', monospace; font-size:12.5px; line-height:1.5;
+    box-shadow:0 4px 20px rgba(0,0,0,.3);
   }
-  .receipt-box .r-title { text-align:center; font-weight:800; font-size:16px; margin-bottom:2px; }
-  .receipt-box .r-sub { text-align:center; font-size:11px; opacity:.7; margin-bottom:10px; }
-  .receipt-box .r-line { border-top:1px dashed #999; margin:8px 0; }
-  .receipt-box .r-row { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:3px; }
-  .receipt-box .r-item-name { flex:1; }
-  .receipt-box .r-total-row { display:flex; justify-content:space-between; font-weight:800; font-size:15px; margin-top:6px; }
-  .receipt-box .r-footer { text-align:center; font-size:11px; opacity:.6; margin-top:12px; }
+  .receipt-box .r-store-name { text-align:center; font-weight:800; font-size:17px; margin-bottom:2px; letter-spacing:.5px; }
+  .receipt-box .r-store-meta { text-align:center; font-size:10.5px; opacity:.75; line-height:1.4; }
+  .receipt-box .r-title { text-align:center; font-weight:700; font-size:12px; margin:8px 0 2px; letter-spacing:1px; }
+  .receipt-box .r-sub { text-align:center; font-size:11px; opacity:.7; margin-bottom:4px; }
+  .receipt-box .r-meta-row { display:flex; justify-content:space-between; font-size:11px; opacity:.75; }
+  .receipt-box .r-line { border-top:1px dashed #aaa; margin:8px 0; }
+  .receipt-box .r-line-solid { border-top:1.5px solid #333; margin:6px 0; }
+  .receipt-box .r-item-name { font-weight:700; font-size:12.5px; margin-top:6px; }
+  .receipt-box .r-row { display:flex; justify-content:space-between; font-size:12px; }
+  .receipt-box .r-row.r-item-sub { padding-left:10px; opacity:.85; }
+  .receipt-box .r-total-row { display:flex; justify-content:space-between; font-weight:800; font-size:16px; margin-top:4px; }
+  .receipt-box .r-footer { text-align:center; font-size:11px; opacity:.65; margin-top:14px; }
+  .receipt-box .r-thanks { text-align:center; font-size:13px; font-weight:700; margin-top:10px; }
 
   .adjust-history-item { display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
   .adjust-history-item:last-child { border-bottom:none; }
@@ -138,7 +145,8 @@
   @media print {
     body * { visibility:hidden; }
     #receiptPrintArea, #receiptPrintArea * { visibility:visible; }
-    #receiptPrintArea { position:absolute; left:0; top:0; width:100%; }
+    #receiptPrintArea { position:absolute; left:0; top:0; width:80mm; margin:0; }
+    .receipt-box { box-shadow:none; padding:6mm 4mm; }
   }
 
   .pay-total-box { text-align:center; padding:12px; background:rgba(255,255,255,.06); border-radius:14px; margin-bottom:10px; }
@@ -209,6 +217,7 @@
     <div class="row-btns">
       <div class="btn-flat" id="quickWithdraw">💵 ถอนเงิน</div>
       <div class="btn-flat" id="quickAddProduct">➕ เพิ่มสินค้า</div>
+      <div class="btn-flat" id="storeSettingsBtn">⚙️ ตั้งค่าร้าน</div>
     </div>
     <div class="label">สินค้าใกล้หมด</div>
     <div id="lowStockList"></div>
@@ -485,6 +494,27 @@
   </div>
 </div>
 
+<!-- Store Settings Modal -->
+<div class="modal-bg" id="storeSettingsModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeStoreSettingsModal">✕</div>
+    <h3>⚙️ ตั้งค่าร้าน (แสดงในใบเสร็จ)</h3>
+    <div class="field">
+      <label>ชื่อร้าน</label>
+      <input type="text" id="storeName" placeholder="เช่น ร้านค้าบ้านดุง">
+    </div>
+    <div class="field">
+      <label>ที่อยู่ / ตำบล-อำเภอ</label>
+      <input type="text" id="storeAddress" placeholder="เช่น ต.บ้านดุง อ.บ้านดุง จ.อุดรธานี">
+    </div>
+    <div class="field">
+      <label>เบอร์โทร</label>
+      <input type="text" id="storePhone" placeholder="เช่น 08x-xxx-xxxx">
+    </div>
+    <button class="btn-main" id="saveStoreSettingsBtn">บันทึกการตั้งค่า</button>
+  </div>
+</div>
+
 <!-- Receipt Modal -->
 <div class="modal-bg" id="receiptModalBg">
   <div class="modal">
@@ -505,6 +535,7 @@ const K_SALES = 'pos_sales_v1';
 const K_PURCHASES = 'pos_purchases_v1';
 const K_WITHDRAWS = 'pos_withdraws_v1';
 const K_ADJUSTMENTS = 'pos_adjustments_v1';
+const K_STORE_SETTINGS = 'pos_store_settings_v1';
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 let products = load(K_PRODUCTS);
@@ -512,6 +543,12 @@ let sales = load(K_SALES);
 let purchases = load(K_PURCHASES);
 let withdraws = load(K_WITHDRAWS);
 let adjustments = load(K_ADJUSTMENTS);
+let storeSettings = (function(){
+  try{
+    const r = localStorage.getItem(K_STORE_SETTINGS);
+    return r ? JSON.parse(r) : { name:'ร้านค้าของฉัน', address:'', phone:'' };
+  }catch(e){ return { name:'ร้านค้าของฉัน', address:'', phone:'' }; }
+})();
 let cart = [];
 let editProductId = null;
 
@@ -1287,28 +1324,61 @@ function renderAdjustHistory(pid){
   }).join('');
 }
 
+document.getElementById('storeSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('storeName').value = storeSettings.name || '';
+  document.getElementById('storeAddress').value = storeSettings.address || '';
+  document.getElementById('storePhone').value = storeSettings.phone || '';
+  document.getElementById('storeSettingsModalBg').classList.add('show');
+});
+document.getElementById('closeStoreSettingsModal').addEventListener('click', ()=>{
+  document.getElementById('storeSettingsModalBg').classList.remove('show');
+});
+document.getElementById('saveStoreSettingsBtn').addEventListener('click', ()=>{
+  storeSettings = {
+    name: document.getElementById('storeName').value.trim() || 'ร้านค้าของฉัน',
+    address: document.getElementById('storeAddress').value.trim(),
+    phone: document.getElementById('storePhone').value.trim()
+  };
+  localStorage.setItem(K_STORE_SETTINGS, JSON.stringify(storeSettings));
+  document.getElementById('storeSettingsModalBg').classList.remove('show');
+  toast('บันทึกการตั้งค่าร้านแล้ว ✅');
+});
+
 // ================= RECEIPT =================
 function showReceipt(sale){
   const dt = new Date(sale.date);
   const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${toBE(dt.getFullYear())}`;
+  const receiptNo = 'R' + sale.date.replace(/-/g,'') + '-' + sale.id.slice(-5).toUpperCase();
   let itemsHtml = sale.items.map(i=>{
     const sub = i.qty*i.price;
-    return `<div class="r-row"><div class="r-item-name">${escapeHtml(i.name)} x${i.qty}</div><div>${fmt(sub)}</div></div>`;
+    return `
+      <div class="r-item-name">${escapeHtml(i.name)}</div>
+      <div class="r-row r-item-sub"><div>${i.qty} x ${fmt(i.price)}</div><div>${fmt(sub)}</div></div>
+    `;
   }).join('');
+  const addressLine = storeSettings.address ? `<div class="r-store-meta">${escapeHtml(storeSettings.address)}</div>` : '';
+  const phoneLine = storeSettings.phone ? `<div class="r-store-meta">โทร. ${escapeHtml(storeSettings.phone)}</div>` : '';
   document.getElementById('receiptContent').innerHTML = `
-    <div class="r-title">🏪 ใบเสร็จรับเงิน</div>
-    <div class="r-sub">${dateStr} เวลา ${sale.time} น.</div>
+    <div class="r-store-name">${escapeHtml(storeSettings.name || 'ร้านค้าของฉัน')}</div>
+    ${addressLine}
+    ${phoneLine}
+    <div class="r-title">ใบเสร็จรับเงิน / RECEIPT</div>
+    <div class="r-line-solid"></div>
+    <div class="r-meta-row"><div>เลขที่: ${receiptNo}</div><div>${dateStr}</div></div>
+    <div class="r-meta-row"><div></div><div>เวลา ${sale.time} น.</div></div>
     <div class="r-line"></div>
     ${itemsHtml}
     <div class="r-line"></div>
-    <div class="r-row"><div>จำนวนชิ้นรวม</div><div>${sale.totalQty}</div></div>
+    <div class="r-row"><div>จำนวนชิ้นรวม</div><div>${sale.totalQty} ชิ้น</div></div>
+    <div class="r-line-solid"></div>
     <div class="r-total-row"><div>ยอดรวมสุทธิ</div><div>${fmt(sale.total)} บาท</div></div>
     ${sale.cashReceived!==undefined ? `
     <div class="r-line"></div>
-    <div class="r-row"><div>รับเงินมา</div><div>${fmt(sale.cashReceived)}</div></div>
-    <div class="r-row"><div>เงินทอน</div><div>${fmt(sale.change)}</div></div>
+    <div class="r-row"><div>รับเงินมา</div><div>${fmt(sale.cashReceived)} บาท</div></div>
+    <div class="r-row"><div>เงินทอน</div><div>${fmt(sale.change)} บาท</div></div>
     ` : ''}
-    <div class="r-footer">เลขที่บิล: ${sale.id}<br>ขอบคุณที่ใช้บริการ</div>
+    <div class="r-thanks">ขอบคุณที่ใช้บริการ</div>
+    <div class="r-footer">เก็บใบเสร็จนี้ไว้เป็นหลักฐาน</div>
   `;
   document.getElementById('receiptModalBg').classList.add('show');
 }
