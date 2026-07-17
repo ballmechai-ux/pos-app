@@ -158,6 +158,19 @@
     background:rgba(255,255,255,.05); font-weight:700; font-size:19px; cursor:pointer; }
   .keypad-btn.clear { color:#ff8a8a; font-size:15px; }
   .keypad-btn.backspace { font-size:18px; }
+
+  @keyframes scanLineMove {
+    0% { top: 12%; opacity:.4; }
+    50% { top: 88%; opacity:1; }
+    100% { top: 12%; opacity:.4; }
+  }
+  .scan-line {
+    position:absolute; left:6%; right:6%; height:3px;
+    background:linear-gradient(90deg, transparent, #ff3b3b 20%, #ff3b3b 80%, transparent);
+    box-shadow:0 0 10px 3px rgba(255,59,59,.7);
+    animation: scanLineMove 1.8s ease-in-out infinite;
+    z-index:6; pointer-events:none; border-radius:2px;
+  }
 </style>
 </head>
 <body>
@@ -631,6 +644,25 @@ function renderStockList(){
 let scannerState = { scan:false, importP:false, product:false };
 const qrIntervals = {};
 const qrLastSeen = {};
+
+let sharedAudioCtx = null;
+function playBeep(){
+  try{
+    if(!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1600;
+    gain.gain.setValueAtTime(0.001, sharedAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, sharedAudioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(sharedAudioCtx.destination);
+    osc.start();
+    osc.stop(sharedAudioCtx.currentTime + 0.16);
+    if(navigator.vibrate) navigator.vibrate(80);
+  }catch(e){ /* audio not supported, ignore */ }
+}
 let videoDevices = [];
 let currentDeviceIndex = 0;
 const CAM_PREF_KEY = 'pos_preferred_camera_id';
@@ -688,6 +720,9 @@ function startScanner(kind){
     guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
     viewport.style.position = 'relative';
     viewport.appendChild(guide);
+    const scanLine = document.createElement('div');
+    scanLine.className = 'scan-line';
+    viewport.appendChild(scanLine);
     startQrLoop(kind, viewport);
     refreshVideoDevices().then(()=>{
       if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
@@ -712,6 +747,7 @@ function startScanner(kind){
     lastAccepted = code;
     lastAcceptedTime = now;
     confirmCode = null; confirmCount = 0;
+    playBeep();
     handleScanResult(kind, code);
   });
 }
@@ -736,6 +772,7 @@ function startQrLoop(kind, viewport){
       const last = qrLastSeen[kind];
       if(code===last.code && now-last.time<1500) return;
       qrLastSeen[kind] = { code, time: now };
+      playBeep();
       handleScanResult(kind, code);
     }
   }, 350);
