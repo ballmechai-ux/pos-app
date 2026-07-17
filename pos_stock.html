@@ -198,6 +198,7 @@
   <div class="tab" data-page="scan">📷 ขายสินค้า</div>
   <div class="tab" data-page="stock">📦 สต็อก</div>
   <div class="tab" data-page="import">🚚 นำเข้า</div>
+  <div class="tab" data-page="bills">🧾 บิล</div>
   <div class="tab" data-page="report">📊 รายงาน</div>
 </div>
 
@@ -314,6 +315,19 @@
   </div>
 </div>
 
+<!-- BILLS (บิลย้อนหลัง) -->
+<div class="page" id="page-bills">
+  <div class="card">
+    <div class="search-box">
+      <input type="text" id="billsSearch" placeholder="🔍 ค้นหาเลขที่บิล / ชื่อสินค้า">
+    </div>
+    <div class="label" id="billsCount">ทั้งหมด 0 บิล</div>
+  </div>
+  <div class="card">
+    <div id="billsList"></div>
+  </div>
+</div>
+
 <!-- REPORT -->
 <div class="page" id="page-report">
   <div class="card">
@@ -353,8 +367,10 @@
   </div>
 
   <div class="card">
-    <div class="btn-flat btn-red" id="resetSalesBtn" style="text-align:center;">🗑️ รีเซ็ตข้อมูลยอดขายทั้งหมด</div>
-    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:6px;">ต้องใส่รหัส PIN ยืนยัน — ลบแล้วกู้คืนไม่ได้ แนะนำ Export สำรองก่อน</div>
+    <div class="label" style="color:#ff8a8a; margin-bottom:8px;">⚠️ โซนอันตราย</div>
+    <div class="btn-flat btn-red" id="openDeleteCenterBtn" style="text-align:center;">🗑️⚠️ ศูนย์จัดการลบข้อมูล</div>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ต้องใส่รหัส PIN ระดับสูงสุด (แยกจาก PIN ปกติ) — ลบแล้วกู้คืนไม่ได้</div>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ลบแล้วกู้คืนไม่ได้ — สินค้า/สต็อกจะไม่ถูกลบ แนะนำ Export สำรองก่อนเสมอ</div>
   </div>
 </div>
 
@@ -512,6 +528,39 @@
   </div>
 </div>
 
+<!-- Data Deletion Center Modal -->
+<div class="modal-bg" id="deleteCenterModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeDeleteCenterModal">✕</div>
+    <h3 style="color:#ff8a8a;">🗑️⚠️ ศูนย์จัดการลบข้อมูล</h3>
+    <div style="font-size:12px; opacity:.7; margin-bottom:14px;">เลือกรายการที่ต้องการลบ (เลือกได้หลายรายการ) — ต้องใส่รหัส PIN ระดับสูงสุดยืนยันก่อนดำเนินการ</div>
+
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delSales" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delSales" style="margin:0;"><b>1. ลบข้อมูลยอดขาย</b><br><span style="font-size:11px; opacity:.65;">เพื่อเริ่มร้านใหม่ (ล้างประวัติการขายทั้งหมด)</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delWithdraws" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delWithdraws" style="margin:0;"><b>2. ลบการถอนเงิน</b></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delBills" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delBills" style="margin:0;"><b>3. ลบบิล</b><br><span style="font-size:11px; opacity:.65;">ใช้ข้อมูลชุดเดียวกับยอดขาย เลือกข้อ 1 หรือ 3 ผลลัพธ์เหมือนกัน</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delCost" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delCost" style="margin:0;"><b>4. ลบราคาต้นทุน</b><br><span style="font-size:11px; opacity:.65;">รีเซ็ตราคาทุนของสินค้าทุกชิ้นเป็น 0 (ชื่อ/ราคาขาย/สต็อกไม่หาย)</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delStock" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delStock" style="margin:0;"><b>5. ลบสต็อกทั้งหมด</b><br><span style="font-size:11px; opacity:.65;">ตั้งจำนวนคงเหลือเป็น 0 ทุกชิ้น แต่ไม่ลบชื่อสินค้า (ไม่ต้องเพิ่มสินค้าใหม่)</span></label>
+    </div>
+
+    <div style="height:6px"></div>
+    <button class="btn-main" id="confirmDeleteCenterBtn" style="background:linear-gradient(135deg,#ff5f6d,#ffc371); color:#3a0d00;">ลบรายการที่เลือก</button>
+  </div>
+</div>
+
 <!-- PIN Confirm Modal -->
 <div class="modal-bg" id="pinModalBg">
   <div class="modal">
@@ -543,9 +592,14 @@
       <input type="text" id="storePhone" placeholder="เช่น 08x-xxx-xxxx">
     </div>
     <div class="field">
-      <label>รหัสผ่าน PIN (สำหรับรีเซ็ตยอดขาย / ปรับสต็อกออก)</label>
+      <label>รหัสผ่าน PIN ปกติ (สำหรับปรับสต็อกออก)</label>
       <input type="password" id="storePin" placeholder="ตั้งรหัส 4-6 หลัก" inputmode="numeric" maxlength="6">
       <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 1234</div>
+    </div>
+    <div class="field">
+      <label style="color:#ff8a8a;">🔑 รหัสผ่าน PIN ระดับสูงสุด (สำหรับศูนย์ลบข้อมูล)</label>
+      <input type="password" id="storeAdminPin" placeholder="ตั้งรหัส 4-6 หลัก (แนะนำให้ต่างจาก PIN ปกติ)" inputmode="numeric" maxlength="6">
+      <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 9999 — ควรตั้งใหม่และเก็บเป็นความลับ</div>
     </div>
     <button class="btn-main" id="saveStoreSettingsBtn">บันทึกการตั้งค่า</button>
   </div>
@@ -574,6 +628,7 @@ const K_ADJUSTMENTS = 'pos_adjustments_v1';
 const K_STORE_SETTINGS = 'pos_store_settings_v1';
 const K_LAST_BACKUP = 'pos_last_backup_ts';
 const K_PIN = 'pos_security_pin';
+const K_ADMIN_PIN = 'pos_admin_pin';
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 let products = load(K_PRODUCTS);
@@ -1434,6 +1489,7 @@ document.getElementById('storeSettingsBtn').addEventListener('click', ()=>{
   document.getElementById('storeAddress').value = storeSettings.address || '';
   document.getElementById('storePhone').value = storeSettings.phone || '';
   document.getElementById('storePin').value = '';
+  document.getElementById('storeAdminPin').value = '';
   document.getElementById('storeSettingsModalBg').classList.add('show');
 });
 document.getElementById('closeStoreSettingsModal').addEventListener('click', ()=>{
@@ -1448,8 +1504,13 @@ document.getElementById('saveStoreSettingsBtn').addEventListener('click', ()=>{
   localStorage.setItem(K_STORE_SETTINGS, JSON.stringify(storeSettings));
   const pinInput = document.getElementById('storePin').value.trim();
   if(pinInput){
-    if(!/^\d{4,6}$/.test(pinInput)){ toast('รหัส PIN ต้องเป็นตัวเลข 4-6 หลัก'); return; }
+    if(!/^\d{4,6}$/.test(pinInput)){ toast('รหัส PIN ปกติ ต้องเป็นตัวเลข 4-6 หลัก'); return; }
     localStorage.setItem(K_PIN, pinInput);
+  }
+  const adminPinInput = document.getElementById('storeAdminPin').value.trim();
+  if(adminPinInput){
+    if(!/^\d{4,6}$/.test(adminPinInput)){ toast('รหัส PIN ระดับสูงสุด ต้องเป็นตัวเลข 4-6 หลัก'); return; }
+    localStorage.setItem(K_ADMIN_PIN, adminPinInput);
   }
   document.getElementById('storeSettingsModalBg').classList.remove('show');
   toast('บันทึกการตั้งค่าร้านแล้ว ✅');
@@ -1457,7 +1518,10 @@ document.getElementById('saveStoreSettingsBtn').addEventListener('click', ()=>{
 
 // ================= ระบบยืนยันรหัส PIN (ใช้ซ้ำได้ทุกจุดที่ต้องป้องกัน) =================
 let pinSuccessCallback = null;
-function requirePin(description, onSuccess){
+let pinCheckLevel = 'normal'; // 'normal' หรือ 'admin'
+function requirePin(description, onSuccess, level){
+  pinCheckLevel = level || 'normal';
+  document.getElementById('pinModalTitle').textContent = pinCheckLevel==='admin' ? '🔑 ยืนยันรหัส PIN ระดับสูงสุด' : '🔒 ยืนยันรหัสผ่าน';
   document.getElementById('pinModalDesc').textContent = description;
   document.getElementById('pinInput').value = '';
   pinSuccessCallback = onSuccess;
@@ -1469,7 +1533,9 @@ document.getElementById('closePinModal').addEventListener('click', ()=>{
 });
 document.getElementById('pinConfirmBtn').addEventListener('click', ()=>{
   const entered = document.getElementById('pinInput').value.trim();
-  const correctPin = localStorage.getItem(K_PIN) || '1234';
+  const correctPin = pinCheckLevel === 'admin'
+    ? (localStorage.getItem(K_ADMIN_PIN) || '9999')
+    : (localStorage.getItem(K_PIN) || '1234');
   if(entered !== correctPin){
     toast('รหัส PIN ไม่ถูกต้อง');
     return;
@@ -1480,23 +1546,55 @@ document.getElementById('pinConfirmBtn').addEventListener('click', ()=>{
   if(cb) cb();
 });
 
-// ================= รีเซ็ตข้อมูลยอดขาย (ต้องใส่ PIN) =================
-document.getElementById('resetSalesBtn').addEventListener('click', ()=>{
-  if(!sales.length){ toast('ไม่มีข้อมูลยอดขายให้รีเซ็ต'); return; }
-  if(!confirm(`ต้องการลบข้อมูลยอดขายทั้งหมด (${sales.length} รายการ) ใช่หรือไม่? การกระทำนี้ไม่สามารถกู้คืนได้`)) return;
-  requirePin('กรอกรหัส PIN เพื่อยืนยันการรีเซ็ตข้อมูลยอดขายทั้งหมด', ()=>{
-    sales = [];
+// ================= ศูนย์จัดการลบข้อมูล (สิทธิ์สูงสุด - PIN แยก) =================
+document.getElementById('openDeleteCenterBtn').addEventListener('click', ()=>{
+  ['delSales','delWithdraws','delBills','delCost','delStock'].forEach(id=>{
+    document.getElementById(id).checked = false;
+  });
+  document.getElementById('deleteCenterModalBg').classList.add('show');
+});
+document.getElementById('closeDeleteCenterModal').addEventListener('click', ()=>{
+  document.getElementById('deleteCenterModalBg').classList.remove('show');
+});
+document.getElementById('confirmDeleteCenterBtn').addEventListener('click', ()=>{
+  const opts = {
+    sales: document.getElementById('delSales').checked,
+    withdraws: document.getElementById('delWithdraws').checked,
+    bills: document.getElementById('delBills').checked,
+    cost: document.getElementById('delCost').checked,
+    stock: document.getElementById('delStock').checked
+  };
+  const anySelected = Object.values(opts).some(v=>v);
+  if(!anySelected){ toast('กรุณาเลือกอย่างน้อย 1 รายการ'); return; }
+
+  const labels = [];
+  if(opts.sales || opts.bills) labels.push('ยอดขาย/บิล');
+  if(opts.withdraws) labels.push('ถอนเงิน');
+  if(opts.cost) labels.push('ราคาต้นทุน');
+  if(opts.stock) labels.push('สต็อกทั้งหมด');
+  if(!confirm(`ยืนยันลบ: ${labels.join(', ')}\n\nการกระทำนี้ไม่สามารถกู้คืนได้ แนะนำ Export สำรองก่อนเสมอ`)) return;
+
+  requirePin('กรอกรหัส PIN ระดับสูงสุด เพื่อยืนยันการลบข้อมูลที่เลือก', ()=>{
+    if(opts.sales || opts.bills){ sales = []; }
+    if(opts.withdraws){ withdraws = []; }
+    if(opts.cost){ products.forEach(p=>{ p.cost = 0; }); }
+    if(opts.stock){ products.forEach(p=>{ p.stock = 0; }); }
     saveAll();
     renderAll();
-    toast('รีเซ็ตข้อมูลยอดขายเรียบร้อยแล้ว');
-  });
+    document.getElementById('deleteCenterModalBg').classList.remove('show');
+    toast(`ลบข้อมูลเรียบร้อยแล้ว: ${labels.join(', ')}`);
+  }, 'admin');
 });
+
+function generateReceiptNo(sale){
+  return 'R' + sale.date.replace(/-/g,'') + '-' + sale.id.slice(-5).toUpperCase();
+}
 
 // ================= RECEIPT =================
 function showReceipt(sale){
   const dt = new Date(sale.date);
   const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${toBE(dt.getFullYear())}`;
-  const receiptNo = 'R' + sale.date.replace(/-/g,'') + '-' + sale.id.slice(-5).toUpperCase();
+  const receiptNo = generateReceiptNo(sale);
   let itemsHtml = sale.items.map(i=>{
     const sub = i.qty*i.price;
     return `
@@ -1628,6 +1726,37 @@ function inRange(dateStr){
     return dt.getFullYear()===reportDate.getFullYear();
   }
 }
+// ================= BILLS (บิลย้อนหลัง) =================
+document.getElementById('billsSearch').addEventListener('input', renderBillsList);
+function renderBillsList(){
+  const q = document.getElementById('billsSearch').value.trim().toLowerCase();
+  let list = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  if(q){
+    list = list.filter(s=>
+      generateReceiptNo(s).toLowerCase().includes(q) ||
+      s.items.some(i=>i.name.toLowerCase().includes(q))
+    );
+  }
+  document.getElementById('billsCount').textContent = `ทั้งหมด ${list.length} บิล`;
+  const el = document.getElementById('billsList');
+  if(!list.length){ el.innerHTML = '<div class="empty">ไม่พบบิล</div>'; return; }
+  el.innerHTML = list.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
+      <div class="prod-left">
+        <div class="prod-name">${generateReceiptNo(s)}</div>
+        <div class="prod-meta">${dateStr} ${s.time} น. · ${escapeHtml(itemNames)}</div>
+      </div>
+      <div class="tx-amt income">+${fmt(s.total)}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-saleid]').forEach(item=>item.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===item.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
 function renderReport(){
   let title;
   if(reportRange==='day'){
@@ -1733,6 +1862,7 @@ function renderAll(){
   renderHome();
   renderStockList();
   renderImportHistory();
+  renderBillsList();
   renderReport();
   checkBackupReminder();
 }
