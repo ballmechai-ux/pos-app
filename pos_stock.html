@@ -642,6 +642,7 @@ function renderStockList(){
 
 // ================= SCANNER (shared logic) =================
 let scannerState = { scan:false, importP:false, product:false };
+let scanCooldownUntil = { scan:0, importP:0, product:0 };
 const qrIntervals = {};
 const qrLastSeen = {};
 
@@ -687,15 +688,91 @@ function getCameraConstraints(){
   return { facingMode:"environment", width:{ideal:1280}, height:{ideal:720}, advanced:[{focusMode:"continuous"}] };
 }
 
+const nativeSupported = ('BarcodeDetector' in window);
+let nativeDetector = null;
+if(nativeSupported){
+  try{
+    nativeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','upc_a','upc_e','qr_code'] });
+  }catch(e){ nativeDetector = null; }
+}
+const detectorIntervals = {};
+const activeStreams = {};
+const scannerMode = {}; // 'native' หรือ 'quagga' ต่อ kind
+
 function startScanner(kind){
-  let viewportId, targetSelector;
+  let viewportId;
   if(kind==='scan'){ viewportId='scannerViewport'; }
   else if(kind==='importP'){ viewportId='scannerViewportImport'; }
   else if(kind==='product'){ viewportId='scannerViewportProduct'; }
   const viewport = document.getElementById(viewportId);
   viewport.style.display='block';
   viewport.innerHTML='';
+  viewport.style.position='relative';
 
+  if(nativeDetector){
+    scannerMode[kind] = 'native';
+    startNativeScanner(kind, viewport);
+  } else {
+    scannerMode[kind] = 'quagga';
+    startQuaggaScanner(kind, viewport);
+  }
+}
+
+function addScanOverlay(viewport){
+  const guide = document.createElement('div');
+  guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
+  viewport.appendChild(guide);
+  const scanLine = document.createElement('div');
+  scanLine.className = 'scan-line';
+  viewport.appendChild(scanLine);
+}
+
+// ---------- โหมดหลัก: ใช้ BarcodeDetector ของเบราว์เซอร์ (แม่นยำกว่า ใช้ AI ในเครื่องเหมือน ML Kit) ----------
+async function startNativeScanner(kind, viewport){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video: getCameraConstraints(), audio:false });
+    activeStreams[kind] = stream;
+    const video = document.createElement('video');
+    video.setAttribute('playsinline','');
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
+    viewport.appendChild(video);
+    await video.play();
+    scannerState[kind] = true;
+    addScanOverlay(viewport);
+    refreshVideoDevices().then(()=>{
+      if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+      if(kind==='importP') document.getElementById('switchCamImportBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+    });
+
+    let lastCode=null, lastTime=0;
+    detectorIntervals[kind] = setInterval(async ()=>{
+      if(!scannerState[kind]) return;
+      if(Date.now() < scanCooldownUntil[kind]) return;
+      if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
+      try{
+        const results = await nativeDetector.detect(video);
+        if(results && results.length){
+          const raw = (results[0].rawValue || '').trim();
+          if(!raw) return;
+          const now = Date.now();
+          if(raw===lastCode && now-lastTime<1500) return;
+          lastCode = raw; lastTime = now;
+          playBeep();
+          handleScanResult(kind, raw);
+        }
+      }catch(e){ /* เฟรมนี้อ่านไม่ได้ ข้ามไปเฟรมถัดไป */ }
+    }, 220);
+  }catch(err){
+    console.error('Native scanner error', err);
+    toast('ไม่สามารถเปิดกล้องได้: ' + (err.message||'ลองใหม่อีกครั้ง'));
+    viewport.style.display='none';
+  }
+}
+
+// ---------- โหมดสำรอง: Quagga + jsQR (ใช้เมื่อเบราว์เซอร์ไม่รองรับ BarcodeDetector) ----------
+function startQuaggaScanner(kind, viewport){
   Quagga.init({
     inputStream: {
       type:"LiveStream",
@@ -716,13 +793,7 @@ function startScanner(kind){
     }
     Quagga.start();
     scannerState[kind] = true;
-    const guide = document.createElement('div');
-    guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
-    viewport.style.position = 'relative';
-    viewport.appendChild(guide);
-    const scanLine = document.createElement('div');
-    scanLine.className = 'scan-line';
-    viewport.appendChild(scanLine);
+    addScanOverlay(viewport);
     startQrLoop(kind, viewport);
     refreshVideoDevices().then(()=>{
       if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
@@ -733,6 +804,7 @@ function startScanner(kind){
   let confirmCode=null, confirmCount=0, lastAccepted=null, lastAcceptedTime=0;
   Quagga.onDetected(function(data){
     if(!scannerState[kind]) return;
+    if(Date.now() < scanCooldownUntil[kind]) return;
     const code = data.codeResult.code;
     if(!/^\d{13}$/.test(code)) return; // รับเฉพาะบาร์โค้ดมาตรฐานสากล EAN-13 (13 หลัก) เท่านั้น
     const now = Date.now();
@@ -758,6 +830,7 @@ function startQrLoop(kind, viewport){
   qrLastSeen[kind] = { code:null, time:0 };
   qrIntervals[kind] = setInterval(()=>{
     if(!scannerState[kind]) return;
+    if(Date.now() < scanCooldownUntil[kind]) return;
     const video = viewport.querySelector('video');
     if(!video || video.readyState !== video.HAVE_ENOUGH_DATA || !video.videoWidth) return;
     canvas.width = video.videoWidth;
@@ -780,15 +853,26 @@ function startQrLoop(kind, viewport){
 function stopQrLoop(kind){
   if(qrIntervals[kind]){ clearInterval(qrIntervals[kind]); delete qrIntervals[kind]; }
 }
+function stopNativeScanner(kind){
+  if(detectorIntervals[kind]){ clearInterval(detectorIntervals[kind]); delete detectorIntervals[kind]; }
+  if(activeStreams[kind]){
+    activeStreams[kind].getTracks().forEach(t=>t.stop());
+    delete activeStreams[kind];
+  }
+}
 function stopScanner(kind){
-  stopQrLoop(kind);
-  if(!scannerState[kind]) { 
+  if(!scannerState[kind]) {
     const map={scan:'scannerViewport',importP:'scannerViewportImport',product:'scannerViewportProduct'};
     const v = document.getElementById(map[kind]);
     if(v) v.style.display='none';
-    return; 
+    return;
   }
-  try{ Quagga.stop(); }catch(e){}
+  if(scannerMode[kind] === 'native'){
+    stopNativeScanner(kind);
+  } else {
+    stopQrLoop(kind);
+    try{ Quagga.stop(); }catch(e){}
+  }
   scannerState[kind] = false;
   const map={scan:'scannerViewport',importP:'scannerViewportImport',product:'scannerViewportProduct'};
   document.getElementById(map[kind]).style.display='none';
@@ -804,6 +888,7 @@ function stopAllScanners(){
 }
 
 function handleScanResult(kind, code){
+  scanCooldownUntil[kind] = Date.now() + 2000; // หยุดรับสแกนใหม่ชั่วคราว กันนับซ้ำถ้าถือมือถือนิ่งจ่อบาร์โค้ดเดิม
   const product = findProductByBarcode(code);
   if(kind==='scan'){
     if(product){ addToCart(product); toast(`เพิ่ม: ${product.name}`); }
