@@ -139,6 +139,11 @@
   .receipt-box .r-footer { text-align:center; font-size:11px; opacity:.65; margin-top:14px; }
   .receipt-box .r-thanks { text-align:center; font-size:13px; font-weight:700; margin-top:10px; }
 
+  #backupReminder.warn { display:flex !important; background:rgba(255,209,102,.15); border:1px solid rgba(255,209,102,.4); }
+  #backupReminder.warn #backupReminderTitle { color:#ffd166; }
+  #backupReminder.danger { display:flex !important; background:rgba(255,90,90,.15); border:1px solid rgba(255,90,90,.5); }
+  #backupReminder.danger #backupReminderTitle { color:#ff8a8a; }
+
   .adjust-history-item { display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
   .adjust-history-item:last-child { border-bottom:none; }
 
@@ -198,6 +203,13 @@
 
 <!-- HOME -->
 <div class="page active" id="page-home">
+  <div id="backupReminder" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:14px; align-items:center; justify-content:space-between; gap:10px; cursor:pointer;">
+    <div style="flex:1;">
+      <div style="font-weight:700; font-size:13.5px;" id="backupReminderTitle">📥 ยังไม่ได้สำรองข้อมูล</div>
+      <div style="font-size:11.5px; opacity:.85; margin-top:2px;" id="backupReminderSub">กดเพื่อบันทึกไฟล์ข้อมูลไว้กันหาย</div>
+    </div>
+    <div style="font-size:20px;">⬇️</div>
+  </div>
   <div class="card">
     <div class="label">สรุปวันนี้</div>
     <div class="summary-grid">
@@ -239,6 +251,7 @@
     </div>
     <div class="btn-flat" id="switchCamBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
     <div class="scan-hint" id="scanHint">กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า</div>
+    <div class="scan-hint">🔫 หรือใช้ปืนยิงบาร์โค้ด (Bluetooth/USB) ยิงได้เลยโดยไม่ต้องเปิดกล้อง</div>
     <div class="field" style="margin-top:10px;">
       <label>หรือค้นหา/เลือกสินค้าด้วยมือ</label>
       <select id="manualProductSelect"><option value="">-- เลือกสินค้า --</option></select>
@@ -337,6 +350,11 @@
   <div class="card">
     <div class="label">รายการขายในช่วงนี้</div>
     <div id="rangeSalesList"></div>
+  </div>
+
+  <div class="card">
+    <div class="btn-flat btn-red" id="resetSalesBtn" style="text-align:center;">🗑️ รีเซ็ตข้อมูลยอดขายทั้งหมด</div>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:6px;">ต้องใส่รหัส PIN ยืนยัน — ลบแล้วกู้คืนไม่ได้ แนะนำ Export สำรองก่อน</div>
   </div>
 </div>
 
@@ -494,6 +512,19 @@
   </div>
 </div>
 
+<!-- PIN Confirm Modal -->
+<div class="modal-bg" id="pinModalBg">
+  <div class="modal">
+    <div class="close-x" id="closePinModal">✕</div>
+    <h3 id="pinModalTitle">🔒 ยืนยันรหัสผ่าน</h3>
+    <div class="field">
+      <label id="pinModalDesc">กรุณากรอกรหัส PIN เพื่อดำเนินการต่อ</label>
+      <input type="password" id="pinInput" placeholder="รหัส PIN" inputmode="numeric" maxlength="6" autocomplete="off">
+    </div>
+    <button class="btn-main" id="pinConfirmBtn">ยืนยัน</button>
+  </div>
+</div>
+
 <!-- Store Settings Modal -->
 <div class="modal-bg" id="storeSettingsModalBg">
   <div class="modal">
@@ -510,6 +541,11 @@
     <div class="field">
       <label>เบอร์โทร</label>
       <input type="text" id="storePhone" placeholder="เช่น 08x-xxx-xxxx">
+    </div>
+    <div class="field">
+      <label>รหัสผ่าน PIN (สำหรับรีเซ็ตยอดขาย / ปรับสต็อกออก)</label>
+      <input type="password" id="storePin" placeholder="ตั้งรหัส 4-6 หลัก" inputmode="numeric" maxlength="6">
+      <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 1234</div>
     </div>
     <button class="btn-main" id="saveStoreSettingsBtn">บันทึกการตั้งค่า</button>
   </div>
@@ -536,6 +572,8 @@ const K_PURCHASES = 'pos_purchases_v1';
 const K_WITHDRAWS = 'pos_withdraws_v1';
 const K_ADJUSTMENTS = 'pos_adjustments_v1';
 const K_STORE_SETTINGS = 'pos_store_settings_v1';
+const K_LAST_BACKUP = 'pos_last_backup_ts';
+const K_PIN = 'pos_security_pin';
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 let products = load(K_PRODUCTS);
@@ -953,7 +991,65 @@ function handleScanResult(kind, code){
   }
 }
 
-// ================= BARCODE LOOKUP (ค้นหาชื่อสินค้าจากเลขบาร์โค้ดทางเน็ต) =================
+// ================= ปืนยิงบาร์โค้ด (Keyboard Wedge - Bluetooth/USB HID) =================
+// ปืนยิงส่วนใหญ่ทำตัวเป็นคีย์บอร์ด พิมพ์ตัวเลขเร็วมากแล้วกด Enter ปิดท้ายอัตโนมัติ
+// เราดักจับจังหวะพิมพ์ที่เร็วผิดปกติ (ไม่ใช่คนพิมพ์เอง) มาตีความเป็นบาร์โค้ดที่สแกนได้
+let kbWedgeBuffer = '';
+let kbWedgeLastTime = 0;
+const KB_WEDGE_MAX_GAP = 60; // มิลลิวินาที ระหว่างตัวอักษร ถ้าห่างกว่านี้ถือว่าเป็นการพิมพ์ของคน ไม่ใช่ปืนยิง
+document.addEventListener('keydown', function(e){
+  const now = Date.now();
+  const gap = now - kbWedgeLastTime;
+  kbWedgeLastTime = now;
+
+  if(e.key === 'Enter'){
+    if(kbWedgeBuffer.length >= 4){
+      const scanned = kbWedgeBuffer;
+      kbWedgeBuffer = '';
+      handleKeyboardWedgeScan(scanned);
+    } else {
+      kbWedgeBuffer = '';
+    }
+    return;
+  }
+  if(e.key.length === 1){
+    if(gap > KB_WEDGE_MAX_GAP){
+      kbWedgeBuffer = e.key; // เริ่มนับใหม่ (จังหวะไม่เร็วพอ น่าจะเป็นคนพิมพ์)
+    } else {
+      kbWedgeBuffer += e.key;
+    }
+  }
+});
+
+function handleKeyboardWedgeScan(code){
+  const activePage = document.querySelector('.page.active');
+  const activePageId = activePage ? activePage.id : '';
+
+  if(document.getElementById('productModalBg').classList.contains('show')){
+    document.getElementById('pBarcode').value = code;
+    playBeep();
+    toast('รับบาร์โค้ดจากปืนยิงแล้ว');
+    autoLookupAndFill(code);
+    return;
+  }
+  if(activePageId === 'page-scan'){
+    playBeep();
+    handleScanResult('scan', code);
+    return;
+  }
+  if(activePageId === 'page-import'){
+    playBeep();
+    handleScanResult('importP', code);
+    return;
+  }
+  if(activePageId === 'page-stock'){
+    playBeep();
+    document.getElementById('stockSearch').value = code;
+    renderStockList();
+  }
+}
+
+
 async function lookupBarcode(code){
   // 1) Open Food Facts - ฐานข้อมูลสินค้าอุปโภคบริโภค/อาหาร ฟรีไม่ต้องใช้ key
   try{
@@ -1300,15 +1396,24 @@ document.getElementById('saveAdjustBtn').addEventListener('click', ()=>{
   if(isNaN(newStock) || newStock<0){ toast('กรุณาใส่จำนวนที่ถูกต้อง'); return; }
   const diff = newStock - p.stock;
   if(diff===0){ toast('จำนวนไม่เปลี่ยนแปลง'); return; }
-  adjustments.push({
-    id: uid(), pid: p.id, name: p.name, date: todayStr(), time: new Date().toTimeString().slice(0,5),
-    before: p.stock, after: newStock, diff, reason, note
-  });
-  p.stock = newStock;
-  saveAll();
-  toast(`ปรับสต็อก ${p.name} เป็น ${newStock} แล้ว`);
-  renderAdjustHistory(p.id);
-  renderAll();
+
+  const doSave = ()=>{
+    adjustments.push({
+      id: uid(), pid: p.id, name: p.name, date: todayStr(), time: new Date().toTimeString().slice(0,5),
+      before: p.stock, after: newStock, diff, reason, note
+    });
+    p.stock = newStock;
+    saveAll();
+    toast(`ปรับสต็อก ${p.name} เป็น ${newStock} แล้ว`);
+    renderAdjustHistory(p.id);
+    renderAll();
+  };
+
+  if(diff < 0){
+    requirePin(`ปรับสต็อกออก ${Math.abs(diff)} ชิ้น (${p.name}) — กรอกรหัส PIN เพื่อยืนยัน`, doSave);
+  } else {
+    doSave();
+  }
 });
 function renderAdjustHistory(pid){
   const el = document.getElementById('adjustHistoryList');
@@ -1328,6 +1433,7 @@ document.getElementById('storeSettingsBtn').addEventListener('click', ()=>{
   document.getElementById('storeName').value = storeSettings.name || '';
   document.getElementById('storeAddress').value = storeSettings.address || '';
   document.getElementById('storePhone').value = storeSettings.phone || '';
+  document.getElementById('storePin').value = '';
   document.getElementById('storeSettingsModalBg').classList.add('show');
 });
 document.getElementById('closeStoreSettingsModal').addEventListener('click', ()=>{
@@ -1340,8 +1446,50 @@ document.getElementById('saveStoreSettingsBtn').addEventListener('click', ()=>{
     phone: document.getElementById('storePhone').value.trim()
   };
   localStorage.setItem(K_STORE_SETTINGS, JSON.stringify(storeSettings));
+  const pinInput = document.getElementById('storePin').value.trim();
+  if(pinInput){
+    if(!/^\d{4,6}$/.test(pinInput)){ toast('รหัส PIN ต้องเป็นตัวเลข 4-6 หลัก'); return; }
+    localStorage.setItem(K_PIN, pinInput);
+  }
   document.getElementById('storeSettingsModalBg').classList.remove('show');
   toast('บันทึกการตั้งค่าร้านแล้ว ✅');
+});
+
+// ================= ระบบยืนยันรหัส PIN (ใช้ซ้ำได้ทุกจุดที่ต้องป้องกัน) =================
+let pinSuccessCallback = null;
+function requirePin(description, onSuccess){
+  document.getElementById('pinModalDesc').textContent = description;
+  document.getElementById('pinInput').value = '';
+  pinSuccessCallback = onSuccess;
+  document.getElementById('pinModalBg').classList.add('show');
+}
+document.getElementById('closePinModal').addEventListener('click', ()=>{
+  document.getElementById('pinModalBg').classList.remove('show');
+  pinSuccessCallback = null;
+});
+document.getElementById('pinConfirmBtn').addEventListener('click', ()=>{
+  const entered = document.getElementById('pinInput').value.trim();
+  const correctPin = localStorage.getItem(K_PIN) || '1234';
+  if(entered !== correctPin){
+    toast('รหัส PIN ไม่ถูกต้อง');
+    return;
+  }
+  document.getElementById('pinModalBg').classList.remove('show');
+  const cb = pinSuccessCallback;
+  pinSuccessCallback = null;
+  if(cb) cb();
+});
+
+// ================= รีเซ็ตข้อมูลยอดขาย (ต้องใส่ PIN) =================
+document.getElementById('resetSalesBtn').addEventListener('click', ()=>{
+  if(!sales.length){ toast('ไม่มีข้อมูลยอดขายให้รีเซ็ต'); return; }
+  if(!confirm(`ต้องการลบข้อมูลยอดขายทั้งหมด (${sales.length} รายการ) ใช่หรือไม่? การกระทำนี้ไม่สามารถกู้คืนได้`)) return;
+  requirePin('กรอกรหัส PIN เพื่อยืนยันการรีเซ็ตข้อมูลยอดขายทั้งหมด', ()=>{
+    sales = [];
+    saveAll();
+    renderAll();
+    toast('รีเซ็ตข้อมูลยอดขายเรียบร้อยแล้ว');
+  });
 });
 
 // ================= RECEIPT =================
@@ -1387,6 +1535,26 @@ document.getElementById('closeReceiptModal').addEventListener('click', ()=>{
 });
 document.getElementById('printReceiptBtn').addEventListener('click', ()=>{
   window.print();
+});
+
+function checkBackupReminder(){
+  const el = document.getElementById('backupReminder');
+  const hasData = sales.length>0 || products.length>0 || purchases.length>0;
+  if(!hasData){ el.style.display='none'; el.className=''; return; }
+  const lastTs = parseInt(localStorage.getItem(K_LAST_BACKUP)) || 0;
+  const daysSince = lastTs ? Math.floor((Date.now()-lastTs)/86400000) : 999;
+  if(daysSince < 1){
+    el.style.display='none'; el.className='';
+    return;
+  }
+  el.className = daysSince >= 3 ? 'danger' : 'warn';
+  document.getElementById('backupReminderTitle').textContent = lastTs
+    ? `📥 ยังไม่ได้สำรองข้อมูลมา ${daysSince} วันแล้ว`
+    : `📥 ยังไม่เคยสำรองข้อมูลเลย`;
+  document.getElementById('backupReminderSub').textContent = 'แตะตรงนี้เพื่อบันทึกไฟล์ข้อมูลไว้กันหาย (Export)';
+}
+document.getElementById('backupReminder').addEventListener('click', ()=>{
+  document.getElementById('exportBtn').click();
 });
 
 // ================= HOME =================
@@ -1528,7 +1696,9 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   a.download = `pos_data_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast('ส่งออกไฟล์แล้ว');
+  localStorage.setItem(K_LAST_BACKUP, String(Date.now()));
+  checkBackupReminder();
+  toast('ส่งออกไฟล์แล้ว บันทึกไว้ในที่ปลอดภัยด้วยนะครับ');
 });
 document.getElementById('importDataBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change', (e)=>{
@@ -1564,6 +1734,7 @@ function renderAll(){
   renderStockList();
   renderImportHistory();
   renderReport();
+  checkBackupReminder();
 }
 renderAll();
 </script>
