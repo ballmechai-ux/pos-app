@@ -119,6 +119,45 @@
   .report-toggle .btn-flat.active { background:linear-gradient(135deg,#38ef7d,#11998e); color:#04241d; font-weight:700; }
 
   .search-box { margin-bottom:10px; }
+
+  .receipt-box {
+    background:#fff; color:#111; border-radius:10px; padding:18px 16px;
+    font-family:'Courier New', monospace; font-size:13px;
+  }
+  .receipt-box .r-title { text-align:center; font-weight:800; font-size:16px; margin-bottom:2px; }
+  .receipt-box .r-sub { text-align:center; font-size:11px; opacity:.7; margin-bottom:10px; }
+  .receipt-box .r-line { border-top:1px dashed #999; margin:8px 0; }
+  .receipt-box .r-row { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:3px; }
+  .receipt-box .r-item-name { flex:1; }
+  .receipt-box .r-total-row { display:flex; justify-content:space-between; font-weight:800; font-size:15px; margin-top:6px; }
+  .receipt-box .r-footer { text-align:center; font-size:11px; opacity:.6; margin-top:12px; }
+
+  .adjust-history-item { display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
+  .adjust-history-item:last-child { border-bottom:none; }
+
+  @media print {
+    body * { visibility:hidden; }
+    #receiptPrintArea, #receiptPrintArea * { visibility:visible; }
+    #receiptPrintArea { position:absolute; left:0; top:0; width:100%; }
+  }
+
+  .pay-total-box { text-align:center; padding:12px; background:rgba(255,255,255,.06); border-radius:14px; margin-bottom:10px; }
+  .pay-total-box .label { font-size:12px; opacity:.7; }
+  .pay-total-box .amt { font-size:28px; font-weight:800; color:#6cf29b; }
+  .pay-display-box { text-align:center; padding:14px; background:rgba(255,255,255,.1); border:2px solid rgba(56,239,125,.5); border-radius:14px; margin-bottom:10px; }
+  .pay-display-box .amt { font-size:32px; font-weight:800; font-family:'Courier New',monospace; }
+  .pay-change-box { text-align:center; padding:10px; border-radius:12px; margin-bottom:12px; }
+  .pay-change-box .label { font-size:12px; opacity:.75; }
+  .pay-change-box .amt { font-size:22px; font-weight:800; }
+  .quick-cash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .quick-cash-btn { padding:12px 4px; text-align:center; border-radius:12px; border:1px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.07); font-weight:700; font-size:14px; cursor:pointer; }
+  .quick-cash-btn.exact { background:linear-gradient(135deg,#38ef7d,#11998e); color:#04241d; grid-column:span 3; }
+  .keypad-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .keypad-btn { padding:16px 4px; text-align:center; border-radius:12px; border:1px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.05); font-weight:700; font-size:19px; cursor:pointer; }
+  .keypad-btn.clear { color:#ff8a8a; font-size:15px; }
+  .keypad-btn.backspace { font-size:18px; }
 </style>
 </head>
 <body>
@@ -190,7 +229,7 @@
     <div id="cartList"></div>
     <div style="height:8px"></div>
     <div class="stat" style="margin-bottom:10px;"><div class="label">ยอดรวม</div><div class="val income" id="cartTotal" style="font-size:22px">0</div></div>
-    <button class="btn-main" id="confirmSaleBtn">✅ ยืนยันการขาย</button>
+    <button class="btn-main" id="confirmSaleBtn">💳 ชำระเงิน</button>
   </div>
 </div>
 
@@ -351,17 +390,115 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Adjust Stock Modal -->
+<div class="modal-bg" id="adjustModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeAdjustModal">✕</div>
+    <h3>ปรับปรุงสต็อก</h3>
+    <div class="field">
+      <label>สินค้า</label>
+      <div id="adjustProductName" style="font-weight:700; font-size:15px; padding:6px 0;"></div>
+      <div style="font-size:12px; opacity:.7;">คงเหลือปัจจุบัน: <span id="adjustCurrentStock">0</span></div>
+    </div>
+    <div class="field">
+      <label>ตั้งจำนวนคงเหลือใหม่</label>
+      <input type="number" id="adjustNewStock" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>เหตุผลการปรับ</label>
+      <select id="adjustReason">
+        <option value="นับสต็อกใหม่">นับสต็อกใหม่ (สต็อกจริงไม่ตรง)</option>
+        <option value="สินค้าเสียหาย">สินค้าเสียหาย/หมดอายุ</option>
+        <option value="สินค้าสูญหาย">สินค้าสูญหาย</option>
+        <option value="แก้ไขข้อมูลผิด">แก้ไขข้อมูลที่กรอกผิด</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>หมายเหตุเพิ่มเติม</label>
+      <input type="text" id="adjustNote" placeholder="(ถ้ามี)">
+    </div>
+    <button class="btn-main" id="saveAdjustBtn">บันทึกการปรับสต็อก</button>
+    <div style="height:14px"></div>
+    <div class="label">ประวัติการปรับสต็อก (สินค้านี้)</div>
+    <div id="adjustHistoryList"></div>
+  </div>
+</div>
+
+<!-- Payment Modal (POS Style) -->
+<div class="modal-bg" id="paymentModalBg">
+  <div class="modal">
+    <div class="close-x" id="closePaymentModal">✕</div>
+    <h3>💳 รับชำระเงิน</h3>
+    <div class="pay-total-box">
+      <div class="label">ยอดที่ต้องชำระ</div>
+      <div class="amt" id="payTotalDisplay">0.00</div>
+    </div>
+    <div class="pay-display-box">
+      <div class="label" style="opacity:.6; font-size:11px; margin-bottom:2px;">รับเงินมา (บาท)</div>
+      <div class="amt" id="paymentDisplay">0</div>
+    </div>
+    <div class="pay-change-box" id="payChangeBox">
+      <div class="label">เงินทอน</div>
+      <div class="amt" id="paymentChange">0.00</div>
+    </div>
+
+    <div class="quick-cash-grid">
+      <div class="quick-cash-btn" data-bill="20">+20</div>
+      <div class="quick-cash-btn" data-bill="50">+50</div>
+      <div class="quick-cash-btn" data-bill="100">+100</div>
+      <div class="quick-cash-btn" data-bill="500">+500</div>
+      <div class="quick-cash-btn" data-bill="1000">+1000</div>
+      <div class="quick-cash-btn" id="clearBillsBtn">รีเซ็ต</div>
+      <div class="quick-cash-btn exact" id="exactCashBtn">💵 รับเงินพอดี (ไม่ต้องทอน)</div>
+    </div>
+
+    <div class="keypad-grid">
+      <div class="keypad-btn" data-key="1">1</div>
+      <div class="keypad-btn" data-key="2">2</div>
+      <div class="keypad-btn" data-key="3">3</div>
+      <div class="keypad-btn" data-key="4">4</div>
+      <div class="keypad-btn" data-key="5">5</div>
+      <div class="keypad-btn" data-key="6">6</div>
+      <div class="keypad-btn" data-key="7">7</div>
+      <div class="keypad-btn" data-key="8">8</div>
+      <div class="keypad-btn" data-key="9">9</div>
+      <div class="keypad-btn clear" id="clearPayBtn">ล้าง</div>
+      <div class="keypad-btn" data-key="0">0</div>
+      <div class="keypad-btn backspace" id="backspacePayBtn">⌫</div>
+    </div>
+
+    <button class="btn-main" id="confirmPaymentBtn">✅ ยืนยันรับเงิน</button>
+  </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal-bg" id="receiptModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeReceiptModal">✕</div>
+    <div id="receiptPrintArea">
+      <div class="receipt-box" id="receiptContent"></div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="row-btns">
+      <div class="btn-flat btn-green" id="printReceiptBtn" style="flex:1; text-align:center;">🖨️ พิมพ์ / บันทึกเป็น PDF</div>
+    </div>
+  </div>
+</div>
+
 <script>
 const K_PRODUCTS = 'pos_products_v1';
 const K_SALES = 'pos_sales_v1';
 const K_PURCHASES = 'pos_purchases_v1';
 const K_WITHDRAWS = 'pos_withdraws_v1';
+const K_ADJUSTMENTS = 'pos_adjustments_v1';
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 let products = load(K_PRODUCTS);
 let sales = load(K_SALES);
 let purchases = load(K_PURCHASES);
 let withdraws = load(K_WITHDRAWS);
+let adjustments = load(K_ADJUSTMENTS);
 let cart = [];
 let editProductId = null;
 
@@ -371,6 +508,7 @@ function saveAll(){
   localStorage.setItem(K_SALES, JSON.stringify(sales));
   localStorage.setItem(K_PURCHASES, JSON.stringify(purchases));
   localStorage.setItem(K_WITHDRAWS, JSON.stringify(withdraws));
+  localStorage.setItem(K_ADJUSTMENTS, JSON.stringify(adjustments));
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2}); }
@@ -474,11 +612,15 @@ function renderStockList(){
         <div class="prod-stock ${low?'low':''}">คงเหลือ: ${p.stock} ${low?'⚠️ ใกล้หมด':''}</div>
       </div>
       <div class="prod-actions">
+        <button class="icon-btn" data-adjust="${p.id}">🔧</button>
         <button class="icon-btn" data-edit="${p.id}">✏️</button>
         <button class="icon-btn" data-del="${p.id}">🗑️</button>
       </div>
     </div>`;
   }).join('');
+  el.querySelectorAll('[data-adjust]').forEach(b=>b.addEventListener('click', ()=>{
+    const p = products.find(x=>x.id===b.dataset.adjust); if(p) openAdjustModal(p);
+  }));
   el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
     const p = products.find(x=>x.id===b.dataset.edit); if(p) openProductModal(p);
   }));
@@ -771,7 +913,11 @@ document.getElementById('manualAddBtn').addEventListener('click', ()=>{
 
 function renderCart(){
   const el = document.getElementById('cartList');
-  if(!cart.length){ el.innerHTML = '<div class="empty">ตะกร้าว่าง</div>'; document.getElementById('cartTotal').textContent='0'; return; }
+  if(!cart.length){
+    el.innerHTML = '<div class="empty">ตะกร้าว่าง</div>';
+    document.getElementById('cartTotal').textContent='0';
+    return;
+  }
   let total=0;
   el.innerHTML = cart.map((c,i)=>{
     const sub = c.price*c.qty;
@@ -795,14 +941,85 @@ function renderCart(){
     renderCart();
   }));
 }
+function getCartTotal(){
+  return cart.reduce((a,c)=>a+c.price*c.qty, 0);
+}
 
 document.getElementById('confirmSaleBtn').addEventListener('click', ()=>{
   if(!cart.length){ toast('ตะกร้าว่าง'); return; }
-  // check stock
   for(const c of cart){
     const p = products.find(x=>x.id===c.pid);
     if(!p || p.stock < c.qty){ toast(`สต็อกไม่พอ: ${c.name}`); return; }
   }
+  openPaymentModal();
+});
+
+// ================= PAYMENT MODAL (POS style) =================
+let payAmountStr = '0';
+function openPaymentModal(){
+  payAmountStr = '0';
+  document.getElementById('payTotalDisplay').textContent = fmt(getCartTotal());
+  updatePaymentDisplay();
+  document.getElementById('paymentModalBg').classList.add('show');
+}
+function closePaymentModal(){
+  document.getElementById('paymentModalBg').classList.remove('show');
+}
+document.getElementById('closePaymentModal').addEventListener('click', closePaymentModal);
+
+function updatePaymentDisplay(){
+  const received = parseFloat(payAmountStr) || 0;
+  document.getElementById('paymentDisplay').textContent = payAmountStr;
+  const total = getCartTotal();
+  const change = received - total;
+  const changeEl = document.getElementById('paymentChange');
+  const boxEl = document.getElementById('payChangeBox');
+  changeEl.textContent = (change<0?'-':'') + fmt(Math.abs(change));
+  changeEl.style.color = change < 0 ? '#ff8a8a' : '#6cf29b';
+  boxEl.style.background = change < 0 ? 'rgba(255,138,138,.12)' : 'rgba(108,242,155,.1)';
+}
+
+document.querySelectorAll('.keypad-btn[data-key]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const key = btn.dataset.key;
+    if(payAmountStr === '0') payAmountStr = key;
+    else payAmountStr += key;
+    if(payAmountStr.length > 9) payAmountStr = payAmountStr.slice(0,9);
+    updatePaymentDisplay();
+  });
+});
+document.getElementById('clearPayBtn').addEventListener('click', ()=>{
+  payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.getElementById('backspacePayBtn').addEventListener('click', ()=>{
+  payAmountStr = payAmountStr.slice(0,-1);
+  if(!payAmountStr) payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.querySelectorAll('.quick-cash-btn[data-bill]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const bill = parseFloat(btn.dataset.bill);
+    const current = parseFloat(payAmountStr) || 0;
+    payAmountStr = String(current + bill);
+    updatePaymentDisplay();
+  });
+});
+document.getElementById('clearBillsBtn').addEventListener('click', ()=>{
+  payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.getElementById('exactCashBtn').addEventListener('click', ()=>{
+  payAmountStr = String(getCartTotal());
+  updatePaymentDisplay();
+});
+
+document.getElementById('confirmPaymentBtn').addEventListener('click', ()=>{
+  const total0 = getCartTotal();
+  const cashReceived = parseFloat(payAmountStr) || 0;
+  if(cashReceived <= 0){ toast('กรุณากรอกจำนวนเงินที่รับ'); return; }
+  if(cashReceived < total0){ toast('เงินที่รับน้อยกว่ายอดที่ต้องชำระ'); return; }
+  const change = cashReceived - total0;
   const now = new Date();
   let total=0, totalCost=0, totalQty=0;
   cart.forEach(c=>{
@@ -812,18 +1029,22 @@ document.getElementById('confirmSaleBtn').addEventListener('click', ()=>{
     const p = products.find(x=>x.id===c.pid);
     p.stock -= c.qty;
   });
-  sales.push({
+  const newSale = {
     id: uid(),
     date: now.toISOString().slice(0,10),
     time: now.toTimeString().slice(0,5),
     items: cart.map(c=>({pid:c.pid, name:c.name, qty:c.qty, price:c.price, cost:c.cost})),
-    total, totalCost, profit: total-totalCost, totalQty
-  });
+    total, totalCost, profit: total-totalCost, totalQty,
+    cashReceived, change
+  };
+  sales.push(newSale);
   cart = [];
   saveAll();
   renderCart();
+  closePaymentModal();
   toast('บันทึกการขายสำเร็จ ✅');
   renderAll();
+  showReceipt(newSale);
 });
 
 // ================= IMPORT (Purchase) =================
@@ -897,6 +1118,85 @@ document.getElementById('saveWithdrawBtn').addEventListener('click', ()=>{
   renderAll();
 });
 
+// ================= STOCK ADJUSTMENT =================
+let adjustProductId = null;
+function openAdjustModal(product){
+  adjustProductId = product.id;
+  document.getElementById('adjustProductName').textContent = product.name;
+  document.getElementById('adjustCurrentStock').textContent = product.stock;
+  document.getElementById('adjustNewStock').value = product.stock;
+  document.getElementById('adjustNote').value = '';
+  renderAdjustHistory(product.id);
+  document.getElementById('adjustModalBg').classList.add('show');
+}
+document.getElementById('closeAdjustModal').addEventListener('click', ()=>{
+  document.getElementById('adjustModalBg').classList.remove('show');
+});
+document.getElementById('saveAdjustBtn').addEventListener('click', ()=>{
+  const p = products.find(x=>x.id===adjustProductId);
+  if(!p){ return; }
+  const newStock = parseInt(document.getElementById('adjustNewStock').value);
+  const reason = document.getElementById('adjustReason').value;
+  const note = document.getElementById('adjustNote').value.trim();
+  if(isNaN(newStock) || newStock<0){ toast('กรุณาใส่จำนวนที่ถูกต้อง'); return; }
+  const diff = newStock - p.stock;
+  if(diff===0){ toast('จำนวนไม่เปลี่ยนแปลง'); return; }
+  adjustments.push({
+    id: uid(), pid: p.id, name: p.name, date: todayStr(), time: new Date().toTimeString().slice(0,5),
+    before: p.stock, after: newStock, diff, reason, note
+  });
+  p.stock = newStock;
+  saveAll();
+  toast(`ปรับสต็อก ${p.name} เป็น ${newStock} แล้ว`);
+  renderAdjustHistory(p.id);
+  renderAll();
+});
+function renderAdjustHistory(pid){
+  const el = document.getElementById('adjustHistoryList');
+  const list = adjustments.filter(a=>a.pid===pid).sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,10);
+  if(!list.length){ el.innerHTML = '<div class="empty">ยังไม่มีประวัติการปรับ</div>'; return; }
+  el.innerHTML = list.map(a=>{
+    const sign = a.diff>0 ? '+' : '';
+    const color = a.diff>0 ? '#6cf29b' : '#ff8a8a';
+    return `<div class="adjust-history-item">
+      <div>${a.date} ${a.time} · ${escapeHtml(a.reason)}${a.note?' ('+escapeHtml(a.note)+')':''}</div>
+      <div style="color:${color}; font-weight:700;">${sign}${a.diff} (${a.before}→${a.after})</div>
+    </div>`;
+  }).join('');
+}
+
+// ================= RECEIPT =================
+function showReceipt(sale){
+  const dt = new Date(sale.date);
+  const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${toBE(dt.getFullYear())}`;
+  let itemsHtml = sale.items.map(i=>{
+    const sub = i.qty*i.price;
+    return `<div class="r-row"><div class="r-item-name">${escapeHtml(i.name)} x${i.qty}</div><div>${fmt(sub)}</div></div>`;
+  }).join('');
+  document.getElementById('receiptContent').innerHTML = `
+    <div class="r-title">🏪 ใบเสร็จรับเงิน</div>
+    <div class="r-sub">${dateStr} เวลา ${sale.time} น.</div>
+    <div class="r-line"></div>
+    ${itemsHtml}
+    <div class="r-line"></div>
+    <div class="r-row"><div>จำนวนชิ้นรวม</div><div>${sale.totalQty}</div></div>
+    <div class="r-total-row"><div>ยอดรวมสุทธิ</div><div>${fmt(sale.total)} บาท</div></div>
+    ${sale.cashReceived!==undefined ? `
+    <div class="r-line"></div>
+    <div class="r-row"><div>รับเงินมา</div><div>${fmt(sale.cashReceived)}</div></div>
+    <div class="r-row"><div>เงินทอน</div><div>${fmt(sale.change)}</div></div>
+    ` : ''}
+    <div class="r-footer">เลขที่บิล: ${sale.id}<br>ขอบคุณที่ใช้บริการ</div>
+  `;
+  document.getElementById('receiptModalBg').classList.add('show');
+}
+document.getElementById('closeReceiptModal').addEventListener('click', ()=>{
+  document.getElementById('receiptModalBg').classList.remove('show');
+});
+document.getElementById('printReceiptBtn').addEventListener('click', ()=>{
+  window.print();
+});
+
 // ================= HOME =================
 function renderHome(){
   const today = todayStr();
@@ -928,11 +1228,14 @@ function renderHome(){
   const recEl = document.getElementById('recentSales');
   recEl.innerHTML = recent.length ? recent.map(s=>{
     const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
-    return `<div class="tx-item">
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
       <div class="prod-left"><div class="prod-name">${s.time} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(itemNames)}</div></div>
       <div class="tx-amt income">+${fmt(s.total)}</div>
     </div>`;
   }).join('') : '<div class="empty">ยังไม่มีการขายวันนี้</div>';
+  recEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
 }
 
 // ================= REPORT =================
@@ -1015,13 +1318,16 @@ function renderReport(){
   listEl.innerHTML = sortedSales.length ? sortedSales.map(s=>{
     const dt = new Date(s.date);
     const dateStr = reportRange==='day' ? s.time : `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${s.time}`;
-    return `<div class="tx-item"><div class="prod-left"><div class="prod-name">${dateStr} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(s.items.map(i=>i.name+' x'+i.qty).join(', '))}</div></div><div class="tx-amt income">+${fmt(s.total)}</div></div>`;
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;"><div class="prod-left"><div class="prod-name">${dateStr} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(s.items.map(i=>i.name+' x'+i.qty).join(', '))}</div></div><div class="tx-amt income">+${fmt(s.total)}</div></div>`;
   }).join('') : '<div class="empty">ไม่มีรายการขายในช่วงนี้</div>';
+  listEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
 }
 
 // ================= EXPORT / IMPORT DATA =================
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const payload = { products, sales, purchases, withdraws };
+  const payload = { products, sales, purchases, withdraws, adjustments };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1049,6 +1355,7 @@ document.getElementById('importFile').addEventListener('change', (e)=>{
       if(Array.isArray(obj.sales)) mergeById(sales, obj.sales);
       if(Array.isArray(obj.purchases)) mergeById(purchases, obj.purchases);
       if(Array.isArray(obj.withdraws)) mergeById(withdraws, obj.withdraws);
+      if(Array.isArray(obj.adjustments)) mergeById(adjustments, obj.adjustments);
       saveAll();
       renderAll();
       toast('นำเข้าข้อมูลสำเร็จ ✅');
