@@ -1,44 +1,25 @@
 // Service Worker สำหรับระบบร้านค้า POS
-// ทำหน้าที่ขั้นต่ำสุดเพื่อให้เบราว์เซอร์อนุญาตให้ "ติดตั้งเป็นแอป" ได้
-// (Android: Add to Home screen / Windows: Install app)
+// เวอร์ชันนี้ "ไม่แคช" หน้าเว็บหลักแล้ว เพื่อป้องกันปัญหาโหลดเจอเวอร์ชันเก่าค้าง
+// (เช่นแก้กล้อง/สแกนแล้วแต่ผู้ใช้ยังเห็นโค้ดเก่าเพราะแคชค้าง)
+// หน้าที่หลักตอนนี้คือทำให้เบราว์เซอร์ยอมให้ "ติดตั้งเป็นแอป" ได้เท่านั้น
 
-const CACHE_NAME = 'pos-app-cache-v1';
-const APP_SHELL = [
-  './pos_stock.html'
-];
+const OLD_CACHE_PREFIX = 'pos-app-cache';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(APP_SHELL).catch(() => {
-        // ถ้าแคชไม่สำเร็จ (เช่น path ไม่ตรง) ไม่เป็นไร ให้ install ผ่านต่อไป
-      });
-    })
-  );
 });
 
 self.addEventListener('activate', (event) => {
+  // ล้างแคชเก่าทุกเวอร์ชันที่เคยสร้างไว้ (จาก Service Worker รุ่นก่อนหน้า) ทิ้งให้หมด
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        keys.filter((k) => k.startsWith(OLD_CACHE_PREFIX)).map((k) => caches.delete(k))
       );
     })
   );
   self.clients.claim();
 });
 
-// กลยุทธ์: พยายามโหลดจากเน็ตก่อน ถ้าออฟไลน์/โหลดไม่ได้ค่อยใช้แคชสำรอง
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
-});
+// ไม่ดักจับ fetch เลย ปล่อยให้ทุกคำขอโหลดจากเน็ตตรงๆ เสมอ
+// (ไม่มี event listener สำหรับ 'fetch' ตรงนี้โดยตั้งใจ)
