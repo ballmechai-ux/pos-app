@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ระบบร้านค้า - สต็อก/ขาย/กำไร</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#11998e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POS ร้านค้า">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
 <style>
@@ -252,12 +258,16 @@
     </div>
     <div class="btn-flat" id="switchCamBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
     <div class="scan-hint" id="scanHint">กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า</div>
-    <div class="scan-hint">🔫 หรือใช้ปืนยิงบาร์โค้ด (Bluetooth/USB) ยิงได้เลยโดยไม่ต้องเปิดกล้อง</div>
+    <div class="field" style="margin-top:10px;">
+      <label>🔫 ช่องรับปืนยิงบาร์โค้ด (คลิกในช่องนี้ก่อนยิง แล้วเลขจะเข้าอัตโนมัติ)</label>
+      <input type="text" id="scanCodeInput" placeholder="ยิงบาร์โค้ด หรือพิมพ์เลขแล้วกด Enter" inputmode="numeric" autocomplete="off">
+    </div>
     <div class="field" style="margin-top:10px;">
       <label>หรือค้นหา/เลือกสินค้าด้วยมือ</label>
       <select id="manualProductSelect"><option value="">-- เลือกสินค้า --</option></select>
     </div>
     <div class="btn-flat" id="manualAddBtn" style="text-align:center;">+ เพิ่มลงตะกร้า</div>
+    <div class="btn-flat" id="noBarcodeSaleBtn" style="text-align:center; margin-top:8px;">🏷️ ขายสินค้าไม่มีบาร์โค้ด</div>
   </div>
 
   <div class="card">
@@ -291,6 +301,10 @@
     </div>
     <div class="btn-flat" id="switchCamImportBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
     <div class="field" style="margin-top:10px;">
+      <label>🔫 ช่องรับปืนยิงบาร์โค้ด</label>
+      <input type="text" id="importCodeInput" placeholder="ยิงบาร์โค้ด หรือพิมพ์เลขแล้วกด Enter" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="field">
       <label>เลือกสินค้า</label>
       <select id="importProductSelect"><option value="">-- เลือกสินค้า --</option></select>
     </div>
@@ -401,7 +415,19 @@
     </div>
     <div class="field">
       <label>หมวดหมู่</label>
-      <input type="text" id="pCategory" placeholder="เช่น เครื่องดื่ม (ถ้ามี)">
+      <select id="pCategory">
+        <option value="เครื่องดื่ม">เครื่องดื่ม</option>
+        <option value="ขนม/ของกินเล่น">ขนม/ของกินเล่น</option>
+        <option value="อาหารแห้ง/เครื่องปรุง">อาหารแห้ง/เครื่องปรุง</option>
+        <option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>
+        <option value="เครื่องสำอาง/ของใช้ส่วนตัว">เครื่องสำอาง/ของใช้ส่วนตัว</option>
+        <option value="ยา/เวชภัณฑ์">ยา/เวชภัณฑ์</option>
+        <option value="บุหรี่/เครื่องดื่มแอลกอฮอล์">บุหรี่/เครื่องดื่มแอลกอฮอล์</option>
+        <option value="เครื่องเขียน/อุปกรณ์">เครื่องเขียน/อุปกรณ์</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+        <option value="__custom__">+ เพิ่มหมวดหมู่ใหม่...</option>
+      </select>
+      <input type="text" id="pCategoryCustom" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่" style="display:none; margin-top:8px;">
     </div>
     <div class="field">
       <label>ราคาทุน/หน่วย (บาท)</label>
@@ -687,12 +713,36 @@ function refreshProductSelects(){
   document.getElementById('importProductSelect').innerHTML = opts;
 }
 
+function setCategorySelectValue(catValue){
+  const sel = document.getElementById('pCategory');
+  const customInput = document.getElementById('pCategoryCustom');
+  const existingOption = Array.from(sel.options).find(o=>o.value===catValue);
+  if(catValue && !existingOption){
+    // เป็นหมวดหมู่ที่เคยพิมพ์เองมาก่อน ให้เพิ่มเป็นตัวเลือกไว้ก่อน __custom__
+    const opt = document.createElement('option');
+    opt.value = catValue; opt.textContent = catValue;
+    sel.insertBefore(opt, sel.querySelector('option[value="__custom__"]'));
+  }
+  sel.value = catValue || 'เครื่องดื่ม';
+  customInput.style.display = 'none';
+  customInput.value = '';
+}
+document.getElementById('pCategory').addEventListener('change', function(){
+  const customInput = document.getElementById('pCategoryCustom');
+  if(this.value === '__custom__'){
+    customInput.style.display = 'block';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+  }
+});
+
 function openProductModal(product, prefillBarcode){
   editProductId = product ? product.id : null;
   document.getElementById('productModalTitle').textContent = product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
   document.getElementById('pBarcode').value = product ? (product.barcode||'') : (prefillBarcode||'');
   document.getElementById('pName').value = product ? product.name : '';
-  document.getElementById('pCategory').value = product ? (product.category||'') : '';
+  setCategorySelectValue(product ? (product.category||'') : '');
   document.getElementById('pCost').value = product ? product.cost : '';
   document.getElementById('pPrice').value = product ? product.price : '';
   document.getElementById('pStock').value = product ? product.stock : 0;
@@ -712,7 +762,10 @@ document.getElementById('quickAddProduct').addEventListener('click', ()=>openPro
 document.getElementById('saveProductBtn').addEventListener('click', ()=>{
   const barcode = document.getElementById('pBarcode').value.trim();
   const name = document.getElementById('pName').value.trim();
-  const category = document.getElementById('pCategory').value.trim();
+  let category = document.getElementById('pCategory').value;
+  if(category === '__custom__'){
+    category = document.getElementById('pCategoryCustom').value.trim();
+  }
   const cost = parseFloat(document.getElementById('pCost').value)||0;
   const price = parseFloat(document.getElementById('pPrice').value)||0;
   const stock = parseInt(document.getElementById('pStock').value)||0;
@@ -1150,7 +1203,7 @@ async function autoLookupAndFill(code){
   const info = await lookupBarcode(code);
   if(info && info.name){
     document.getElementById('pName').value = info.name;
-    if(info.category) document.getElementById('pCategory').value = info.category;
+    if(info.category) setCategorySelectValue(info.category);
     statusEl.textContent = `✅ พบข้อมูล (${info.source}): ${info.name}`;
     toast('พบข้อมูลสินค้า: ' + info.name);
   } else {
@@ -1221,6 +1274,53 @@ document.getElementById('manualAddBtn').addEventListener('click', ()=>{
   if(p) addToCart(p);
 });
 
+// ---------- ช่องรับปืนยิงบาร์โค้ดโดยเฉพาะ (เชื่อถือได้กว่า เพราะเป็น input จริงรับตัวอักษรตรงๆ) ----------
+document.getElementById('scanCodeInput').addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim();
+  e.target.value = '';
+  if(!code) return;
+  const product = findProductByBarcode(code);
+  if(product){
+    playBeep();
+    addToCart(product);
+    toast(`เพิ่ม: ${product.name}`);
+  } else {
+    toast('ไม่พบสินค้านี้ กำลังเปิดหน้าเพิ่มสินค้าใหม่...');
+    openProductModal(null, code);
+    autoLookupAndFill(code);
+  }
+});
+document.getElementById('importCodeInput').addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim();
+  e.target.value = '';
+  if(!code) return;
+  const product = findProductByBarcode(code);
+  if(product){
+    playBeep();
+    document.getElementById('importProductSelect').value = product.id;
+    document.getElementById('importCost').value = product.cost;
+    toast(`เลือก: ${product.name}`);
+  } else {
+    toast('ไม่พบสินค้า กรุณาเพิ่มสินค้าใหม่ก่อน');
+  }
+});
+
+// ---------- ขายสินค้าที่ไม่มีบาร์โค้ด (สินค้าเฉพาะกิจ/ชั่งกิโล/ไม่ได้ลงทะเบียนไว้) ----------
+document.getElementById('noBarcodeSaleBtn').addEventListener('click', ()=>{
+  const name = prompt('ชื่อสินค้า:');
+  if(!name || !name.trim()) return;
+  const priceStr = prompt('ราคาขาย (บาท):');
+  const price = parseFloat(priceStr);
+  if(isNaN(price) || price<=0){ toast('ราคาไม่ถูกต้อง'); return; }
+  cart.push({ pid: 'adhoc_'+uid(), name: name.trim() + ' (ไม่มีบาร์โค้ด)', price, cost: 0, qty: 1, adhoc: true });
+  renderCart();
+  toast('เพิ่มลงตะกร้าแล้ว');
+});
+
 function renderCart(){
   const el = document.getElementById('cartList');
   if(!cart.length){
@@ -1258,6 +1358,7 @@ function getCartTotal(){
 document.getElementById('confirmSaleBtn').addEventListener('click', ()=>{
   if(!cart.length){ toast('ตะกร้าว่าง'); return; }
   for(const c of cart){
+    if(c.adhoc) continue; // สินค้าไม่มีบาร์โค้ด ไม่มีสต็อกให้เช็ค
     const p = products.find(x=>x.id===c.pid);
     if(!p || p.stock < c.qty){ toast(`สต็อกไม่พอ: ${c.name}`); return; }
   }
@@ -1336,8 +1437,9 @@ document.getElementById('confirmPaymentBtn').addEventListener('click', ()=>{
     total += c.price*c.qty;
     totalCost += c.cost*c.qty;
     totalQty += c.qty;
+    if(c.adhoc) return; // สินค้าไม่มีบาร์โค้ด ไม่ต้องตัดสต็อก
     const p = products.find(x=>x.id===c.pid);
-    p.stock -= c.qty;
+    if(p) p.stock -= c.qty;
   });
   const newSale = {
     id: uid(),
@@ -1641,11 +1743,11 @@ function checkBackupReminder(){
   if(!hasData){ el.style.display='none'; el.className=''; return; }
   const lastTs = parseInt(localStorage.getItem(K_LAST_BACKUP)) || 0;
   const daysSince = lastTs ? Math.floor((Date.now()-lastTs)/86400000) : 999;
-  if(daysSince < 1){
+  if(daysSince < 7){
     el.style.display='none'; el.className='';
     return;
   }
-  el.className = daysSince >= 3 ? 'danger' : 'warn';
+  el.className = daysSince >= 14 ? 'danger' : 'warn';
   document.getElementById('backupReminderTitle').textContent = lastTs
     ? `📥 ยังไม่ได้สำรองข้อมูลมา ${daysSince} วันแล้ว`
     : `📥 ยังไม่เคยสำรองข้อมูลเลย`;
@@ -1867,6 +1969,15 @@ function renderAll(){
   checkBackupReminder();
 }
 renderAll();
+
+// ลงทะเบียน Service Worker เพื่อให้ติดตั้งเป็นแอปได้ (Android/Windows)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{
+      // ถ้าลงทะเบียนไม่สำเร็จ (เช่นเปิดจาก file:// หรือไม่มี sw.js) ไม่กระทบการใช้งานแอปปกติ
+    });
+  });
+}
 </script>
 </body>
 </html>
