@@ -153,11 +153,27 @@
   .adjust-history-item { display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
   .adjust-history-item:last-child { border-bottom:none; }
 
+  .denom-row { display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid rgba(255,255,255,.08); }
+  .denom-row:last-child { border-bottom:none; }
+  .denom-row .denom-label { flex:1; font-size:13px; }
+  .denom-row input { width:68px; text-align:center; padding:8px 4px; flex-shrink:0; }
+  .denom-row .denom-sub { width:76px; text-align:right; font-size:12.5px; font-weight:700; opacity:.85; flex-shrink:0; }
+
   @media print {
-    body * { visibility:hidden; }
-    #receiptPrintArea, #receiptPrintArea * { visibility:visible; }
-    #receiptPrintArea { position:absolute; left:0; top:0; width:80mm; margin:0; }
-    .receipt-box { box-shadow:none; padding:6mm 4mm; }
+    body > *:not(#receiptModalBg) { display:none !important; }
+    #receiptModalBg {
+      display:block !important; position:static !important;
+      background:none !important; padding:0 !important; margin:0 !important;
+      align-items:normal !important;
+    }
+    #receiptModalBg .modal {
+      position:static !important; width:80mm !important; max-width:80mm !important;
+      max-height:none !important; overflow:visible !important;
+      background:none !important; box-shadow:none !important; padding:0 !important; margin:0 auto !important;
+    }
+    #receiptModalBg .close-x, #receiptModalBg .row-btns { display:none !important; }
+    #receiptPrintArea { width:100% !important; }
+    .receipt-box { box-shadow:none !important; padding:6mm 4mm !important; }
   }
 
   .pay-total-box { text-align:center; padding:12px; background:rgba(255,255,255,.06); border-radius:14px; margin-bottom:10px; }
@@ -226,15 +242,25 @@
     <div style="height:8px"></div>
     <div class="summary-grid">
       <div class="stat"><div class="label">กำไรขั้นต้น</div><div class="val" id="hProfit">0</div></div>
-      <div class="stat"><div class="label">ถอนเงิน/ค่าใช้จ่าย</div><div class="val expense" id="hWithdraw">0</div></div>
+      <div class="stat"><div class="label">ค่าใช้จ่าย</div><div class="val expense" id="hWithdraw">0</div></div>
     </div>
     <div style="height:8px"></div>
-    <div class="stat"><div class="label">กำไรสุทธิวันนี้ (หลังหักถอน)</div><div class="val" id="hNet" style="font-size:20px">0</div></div>
+    <div class="stat"><div class="label">กำไรสุทธิวันนี้ (หลังหักค่าใช้จ่าย)</div><div class="val" id="hNet" style="font-size:20px">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">💰 เงินสดในลิ้นชัก (คำนวณ)</div>
+    <div class="stat" style="margin-bottom:10px;"><div class="val neutral" id="drawerBalance" style="font-size:26px">0</div></div>
+    <div class="row-btns">
+      <div class="btn-flat btn-green" id="injectCashBtn">➕ เติมเงินสด</div>
+      <div class="btn-flat btn-red" id="safekeepCashBtn">📤 ถอนเก็บ</div>
+    </div>
+    <div class="btn-flat" id="shiftCloseBtn" style="text-align:center; margin-top:8px;">🧮 นับเงินปิดรอบ</div>
   </div>
 
   <div class="card">
     <div class="row-btns">
-      <div class="btn-flat" id="quickWithdraw">💵 ถอนเงิน</div>
+      <div class="btn-flat" id="quickWithdraw">💵 ค่าใช้จ่าย</div>
       <div class="btn-flat" id="quickAddProduct">➕ เพิ่มสินค้า</div>
       <div class="btn-flat" id="storeSettingsBtn">⚙️ ตั้งค่าร้าน</div>
     </div>
@@ -253,6 +279,30 @@
 
 <!-- SCAN & SELL -->
 <div class="page" id="page-scan">
+  <!-- ด่านล็อกอินพนักงานขาย -->
+  <div class="card" id="cashierLoginCard">
+    <div class="label">🔒 กรุณาเข้าสู่ระบบพนักงานก่อนขายสินค้า</div>
+    <div class="field">
+      <label>ชื่อพนักงาน</label>
+      <select id="cashierSelect"><option value="">-- เลือกชื่อพนักงาน --</option></select>
+    </div>
+    <div class="field">
+      <label>รหัส PIN ประจำตัว</label>
+      <input type="password" id="cashierPinInput" placeholder="0000" inputmode="numeric" maxlength="4">
+    </div>
+    <button class="btn-main" id="cashierLoginBtn">เข้าสู่ระบบ</button>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ยังไม่มีรายชื่อพนักงาน? ไปเพิ่มได้ที่ "⚙️ ตั้งค่าร้าน" ในหน้าหลัก</div>
+  </div>
+
+  <!-- แถบแสดงพนักงานที่ล็อกอินอยู่ -->
+  <div class="card" id="cashierStatusBar" style="display:none; padding:12px 16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>👤 พนักงาน: <b id="cashierNameDisplay"></b></div>
+      <div class="btn-flat" id="cashierLogoutBtn" style="font-size:12px; padding:6px 12px;">ออกจากระบบ</div>
+    </div>
+  </div>
+
+  <div id="saleContentArea" style="display:none;">
   <div class="card">
     <div id="scannerViewport" style="height:0; padding-bottom:56%; display:none;"></div>
     <div class="row-btns" style="margin-top:8px;">
@@ -279,6 +329,7 @@
     <div style="height:8px"></div>
     <div class="stat" style="margin-bottom:10px;"><div class="label">ยอดรวม</div><div class="val income" id="cartTotal" style="font-size:22px">0</div></div>
     <button class="btn-main" id="confirmSaleBtn">💳 ชำระเงิน</button>
+  </div>
   </div>
 </div>
 
@@ -469,7 +520,8 @@
 <div class="modal-bg" id="withdrawModalBg">
   <div class="modal">
     <div class="close-x" id="closeWithdrawModal">✕</div>
-    <h3>ถอนเงิน / ค่าใช้จ่าย</h3>
+    <h3>💵 บันทึกค่าใช้จ่าย</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับค่าใช้จ่ายของร้าน (ค่าเช่า, ค่าน้ำไฟ ฯลฯ) จะถูกหักออกจากกำไรสุทธิ — ถ้าต้องการแค่ "ถอนเงินเก็บ" ไม่ใช่ค่าใช้จ่าย ให้ใช้ปุ่ม "📤 ถอนเก็บ" ในหน้าหลักแทน</div>
     <div class="field">
       <label>วันที่</label>
       <input type="date" id="wDate">
@@ -480,13 +532,86 @@
     </div>
     <div class="field">
       <label>หมายเหตุ</label>
-      <input type="text" id="wNote" placeholder="เช่น ค่าเช่า, เบิกส่วนตัว">
+      <input type="text" id="wNote" placeholder="เช่น ค่าเช่า, ค่าน้ำไฟ">
     </div>
     <button class="btn-main" id="saveWithdrawBtn">บันทึก</button>
   </div>
 </div>
 
+<!-- Cash Inject Modal (เติมเงินสด) -->
+<div class="modal-bg" id="injectCashModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeInjectCashModal">✕</div>
+    <h3>➕ เติมเงินสดเข้าลิ้นชัก</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับเงินทอนตั้งต้น หรือเติมเงินสดเพิ่มเข้าลิ้นชัก ไม่นับเป็นรายรับ/กำไร แค่เพิ่มยอดเงินสดที่มี</div>
+    <div class="field">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="injectAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="injectNote" placeholder="เช่น เงินทอนตั้งต้น">
+    </div>
+    <button class="btn-main" id="saveInjectBtn">บันทึก</button>
+  </div>
+</div>
+
+<!-- Cash Safekeep Withdrawal Modal (ถอนเก็บ) -->
+<div class="modal-bg" id="safekeepModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeSafekeepModal">✕</div>
+    <h3>📤 ถอนเงินเก็บ (นอกลิ้นชัก)</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับเงินที่ถอนออกไปเก็บนอกเครื่อง (เช่น ฝากธนาคาร) เงินยังเป็นของร้าน <b>ไม่ใช่ค่าใช้จ่าย</b> จึงไม่ถูกหักออกจากกำไร แค่ลดยอดเงินสดในลิ้นชัก ต้องใส่ PIN ยืนยัน</div>
+    <div class="field">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="safekeepAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="safekeepNote" placeholder="เช่น นำฝากธนาคาร">
+    </div>
+    <button class="btn-main" id="saveSafekeepBtn">บันทึก (ต้องใส่ PIN)</button>
+  </div>
+</div>
+
+<!-- Shift Close / Cash Count Modal (นับเงินปิดรอบ) -->
+<div class="modal-bg" id="shiftCloseModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeShiftCloseModal">✕</div>
+    <h3>🧮 นับเงินปิดรอบ</h3>
+    <div class="stat" style="margin-bottom:12px;">
+      <div class="label">ยอดเงินสดที่ควรมี (คำนวณจากระบบ)</div>
+      <div class="val neutral" id="shiftExpectedAmount" style="font-size:22px">0</div>
+    </div>
+
+    <div class="label" style="margin-bottom:8px;">💵 นับแบงก์/เหรียญ (กรอกจำนวน "ใบ/เหรียญ" ระบบคูณรวมให้)</div>
+    <div id="denomCounterList"></div>
+    <div class="stat" style="margin:10px 0 12px;">
+      <div class="label">รวมจากการนับ</div>
+      <div class="val income" id="denomCounterTotal" style="font-size:20px">0.00</div>
+    </div>
+
+    <div class="field">
+      <label>นับเงินสดจริงได้เท่าไหร่ (บาท) — เติมอัตโนมัติจากด้านบน หรือแก้เองก็ได้</label>
+      <input type="number" id="shiftCountedAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="stat" style="margin-bottom:12px;">
+      <div class="label">ผลต่าง</div>
+      <div class="val" id="shiftDiffAmount" style="font-size:20px">0</div>
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="shiftCloseNote" placeholder="(ถ้ามี)">
+    </div>
+    <button class="btn-main" id="saveShiftCloseBtn">บันทึกการปิดรอบ</button>
+    <div style="height:14px"></div>
+    <div class="label">ประวัติการปิดรอบล่าสุด</div>
+    <div id="shiftCloseHistory"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+
 
 <!-- Adjust Stock Modal -->
 <div class="modal-bg" id="adjustModalBg">
@@ -644,6 +769,19 @@
       <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 9999 — ควรตั้งใหม่และเก็บเป็นความลับ</div>
     </div>
     <button class="btn-main" id="saveStoreSettingsBtn">บันทึกการตั้งค่า</button>
+
+    <div class="r-line" style="border-color:rgba(255,255,255,.15); margin:20px 0;"></div>
+    <div class="label" style="margin-bottom:8px;">👥 จัดการพนักงานขาย</div>
+    <div id="staffList" style="margin-bottom:10px;"></div>
+    <div class="field">
+      <label>ชื่อพนักงานใหม่</label>
+      <input type="text" id="newStaffName" placeholder="เช่น น้อง A">
+    </div>
+    <div class="field">
+      <label>รหัส PIN ประจำตัว (4 หลัก)</label>
+      <input type="password" id="newStaffPin" placeholder="0000" inputmode="numeric" maxlength="4">
+    </div>
+    <div class="btn-flat btn-green" id="addStaffBtn" style="text-align:center;">+ เพิ่มพนักงาน</div>
   </div>
 </div>
 
@@ -671,6 +809,9 @@ const K_STORE_SETTINGS = 'pos_store_settings_v1';
 const K_LAST_BACKUP = 'pos_last_backup_ts';
 const K_PIN = 'pos_security_pin';
 const K_ADMIN_PIN = 'pos_admin_pin';
+const K_STAFF = 'pos_staff_v1';
+const K_CASH_DRAWER = 'pos_cash_drawer_v1';
+const K_SHIFT_CLOSES = 'pos_shift_closes_v1';
 const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
 let products = load(K_PRODUCTS);
@@ -678,6 +819,10 @@ let sales = load(K_SALES);
 let purchases = load(K_PURCHASES);
 let withdraws = load(K_WITHDRAWS);
 let adjustments = load(K_ADJUSTMENTS);
+let staffList = load(K_STAFF);
+let cashDrawer = load(K_CASH_DRAWER);
+let shiftCloses = load(K_SHIFT_CLOSES);
+let currentCashier = null; // ล็อกอินใหม่ทุกครั้งที่เปิดแอป (ไม่จำข้ามเซสชัน เพื่อความปลอดภัย)
 let storeSettings = (function(){
   try{
     const r = localStorage.getItem(K_STORE_SETTINGS);
@@ -694,6 +839,9 @@ function saveAll(){
   localStorage.setItem(K_PURCHASES, JSON.stringify(purchases));
   localStorage.setItem(K_WITHDRAWS, JSON.stringify(withdraws));
   localStorage.setItem(K_ADJUSTMENTS, JSON.stringify(adjustments));
+  localStorage.setItem(K_STAFF, JSON.stringify(staffList));
+  localStorage.setItem(K_CASH_DRAWER, JSON.stringify(cashDrawer));
+  localStorage.setItem(K_SHIFT_CLOSES, JSON.stringify(shiftCloses));
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmt(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2}); }
@@ -1403,6 +1551,7 @@ function getCartTotal(){
 }
 
 document.getElementById('confirmSaleBtn').addEventListener('click', ()=>{
+  if(!currentCashier){ toast('กรุณาเข้าสู่ระบบพนักงานก่อนขาย'); return; }
   if(!cart.length){ toast('ตะกร้าว่าง'); return; }
   for(const c of cart){
     if(c.adhoc) continue; // สินค้าไม่มีบาร์โค้ด ไม่มีสต็อกให้เช็ค
@@ -1494,7 +1643,8 @@ document.getElementById('confirmPaymentBtn').addEventListener('click', ()=>{
     time: now.toTimeString().slice(0,5),
     items: cart.map(c=>({pid:c.pid, name:c.name, qty:c.qty, price:c.price, cost:c.cost})),
     total, totalCost, profit: total-totalCost, totalQty,
-    cashReceived, change
+    cashReceived, change,
+    cashierName: currentCashier?.name || '-'
   };
   sales.push(newSale);
   cart = [];
@@ -1573,9 +1723,204 @@ document.getElementById('saveWithdrawBtn').addEventListener('click', ()=>{
   withdraws.push({id:uid(), date, amount, note});
   saveAll();
   document.getElementById('withdrawModalBg').classList.remove('show');
-  toast('บันทึกการถอนเงินแล้ว');
+  toast('บันทึกค่าใช้จ่ายแล้ว');
   renderAll();
 });
+
+// ================= พนักงานขาย (Staff) =================
+function renderStaffList(){
+  const el = document.getElementById('staffList');
+  if(!el) return;
+  if(!staffList.length){ el.innerHTML = '<div class="empty">ยังไม่มีพนักงาน</div>'; return; }
+  el.innerHTML = staffList.map(s=>
+    `<div class="tx-item"><div class="prod-left"><div class="prod-name">${escapeHtml(s.name)}</div></div><button class="icon-btn" data-delstaff="${s.id}">🗑️</button></div>`
+  ).join('');
+  el.querySelectorAll('[data-delstaff]').forEach(b=>b.addEventListener('click', ()=>{
+    if(!confirm('ลบพนักงานคนนี้ใช่หรือไม่?')) return;
+    staffList = staffList.filter(s=>s.id!==b.dataset.delstaff);
+    saveAll();
+    renderStaffList();
+    refreshCashierSelect();
+    toast('ลบพนักงานแล้ว');
+  }));
+}
+document.getElementById('addStaffBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('newStaffName').value.trim();
+  const pin = document.getElementById('newStaffPin').value.trim();
+  if(!name){ toast('กรุณาใส่ชื่อพนักงาน'); return; }
+  if(!/^\d{4}$/.test(pin)){ toast('รหัส PIN ต้องเป็นตัวเลข 4 หลัก'); return; }
+  staffList.push({id: uid(), name, pin});
+  saveAll();
+  document.getElementById('newStaffName').value = '';
+  document.getElementById('newStaffPin').value = '';
+  renderStaffList();
+  refreshCashierSelect();
+  toast('เพิ่มพนักงานแล้ว ✅');
+});
+
+// ================= ล็อกอินพนักงานก่อนขาย =================
+function refreshCashierSelect(){
+  const sel = document.getElementById('cashierSelect');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">-- เลือกชื่อพนักงาน --</option>' +
+    staffList.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+}
+function updateCashierGateUI(){
+  const loggedIn = !!currentCashier;
+  document.getElementById('cashierLoginCard').style.display = loggedIn ? 'none' : 'block';
+  document.getElementById('cashierStatusBar').style.display = loggedIn ? 'block' : 'none';
+  document.getElementById('saleContentArea').style.display = loggedIn ? 'block' : 'none';
+  if(loggedIn) document.getElementById('cashierNameDisplay').textContent = currentCashier.name;
+}
+document.getElementById('cashierLoginBtn').addEventListener('click', ()=>{
+  const staffId = document.getElementById('cashierSelect').value;
+  const pin = document.getElementById('cashierPinInput').value.trim();
+  if(!staffId){ toast('กรุณาเลือกชื่อพนักงาน'); return; }
+  const staff = staffList.find(s=>s.id===staffId);
+  if(!staff || staff.pin !== pin){ toast('รหัส PIN ไม่ถูกต้อง'); return; }
+  currentCashier = { id: staff.id, name: staff.name };
+  document.getElementById('cashierPinInput').value = '';
+  updateCashierGateUI();
+  toast(`เข้าสู่ระบบสำเร็จ: ${staff.name} ✅`);
+});
+document.getElementById('cashierLogoutBtn').addEventListener('click', ()=>{
+  currentCashier = null;
+  cart = [];
+  renderCart();
+  updateCashierGateUI();
+  toast('ออกจากระบบแล้ว');
+});
+
+// ================= ลิ้นชักเงินสด (Cash Drawer) =================
+function computeDrawerBalance(){
+  const inject = cashDrawer.filter(c=>c.type==='inject').reduce((a,c)=>a+c.amount,0);
+  const safekeep = cashDrawer.filter(c=>c.type==='safekeep').reduce((a,c)=>a+c.amount,0);
+  const salesTotal = sales.reduce((a,s)=>a+s.total,0);
+  const expenseTotal = withdraws.reduce((a,w)=>a+w.amount,0);
+  return inject + salesTotal - expenseTotal - safekeep;
+}
+document.getElementById('injectCashBtn').addEventListener('click', ()=>{
+  document.getElementById('injectAmount').value = '';
+  document.getElementById('injectNote').value = '';
+  document.getElementById('injectCashModalBg').classList.add('show');
+});
+document.getElementById('closeInjectCashModal').addEventListener('click', ()=>{
+  document.getElementById('injectCashModalBg').classList.remove('show');
+});
+document.getElementById('saveInjectBtn').addEventListener('click', ()=>{
+  const amount = parseFloat(document.getElementById('injectAmount').value);
+  const note = document.getElementById('injectNote').value.trim();
+  if(!amount || amount<=0){ toast('กรุณาใส่จำนวนเงิน'); return; }
+  cashDrawer.push({ id: uid(), type:'inject', amount, date: todayStr(), time: new Date().toTimeString().slice(0,5), note, cashierName: currentCashier?.name || '-' });
+  saveAll();
+  document.getElementById('injectCashModalBg').classList.remove('show');
+  toast('เติมเงินสดเรียบร้อยแล้ว ✅');
+  renderAll();
+});
+document.getElementById('safekeepCashBtn').addEventListener('click', ()=>{
+  document.getElementById('safekeepAmount').value = '';
+  document.getElementById('safekeepNote').value = '';
+  document.getElementById('safekeepModalBg').classList.add('show');
+});
+document.getElementById('closeSafekeepModal').addEventListener('click', ()=>{
+  document.getElementById('safekeepModalBg').classList.remove('show');
+});
+document.getElementById('saveSafekeepBtn').addEventListener('click', ()=>{
+  const amount = parseFloat(document.getElementById('safekeepAmount').value);
+  const note = document.getElementById('safekeepNote').value.trim();
+  if(!amount || amount<=0){ toast('กรุณาใส่จำนวนเงิน'); return; }
+  const balance = computeDrawerBalance();
+  if(amount > balance){ toast(`เงินสดในลิ้นชักไม่พอ (มี ${fmt(balance)} บาท)`); return; }
+  requirePin('กรอกรหัส PIN เพื่อยืนยันการถอนเงินเก็บ', ()=>{
+    cashDrawer.push({ id: uid(), type:'safekeep', amount, date: todayStr(), time: new Date().toTimeString().slice(0,5), note, cashierName: currentCashier?.name || '-' });
+    saveAll();
+    document.getElementById('safekeepModalBg').classList.remove('show');
+    toast('บันทึกการถอนเงินเก็บแล้ว ✅');
+    renderAll();
+  }, 'normal');
+});
+
+// ================= นับเงินปิดรอบ (Shift Close) =================
+const DENOMINATIONS = [1000, 500, 100, 50, 20, 10, 5, 2, 1];
+function renderDenomCounter(){
+  const el = document.getElementById('denomCounterList');
+  el.innerHTML = DENOMINATIONS.map(v=>{
+    const isCoin = v <= 10;
+    const label = isCoin ? `เหรียญ ${v} บาท` : `แบงก์ ${v} บาท`;
+    return `<div class="denom-row">
+      <div class="denom-label">${label}</div>
+      <input type="number" min="0" inputmode="numeric" data-denom="${v}" placeholder="0">
+      <div class="denom-sub" data-denomsub="${v}">0.00</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-denom]').forEach(inp=>{
+    inp.addEventListener('input', updateDenomCounterTotal);
+  });
+}
+function updateDenomCounterTotal(){
+  let total = 0;
+  DENOMINATIONS.forEach(v=>{
+    const inp = document.querySelector(`[data-denom="${v}"]`);
+    const qty = parseInt(inp.value) || 0;
+    const sub = qty * v;
+    total += sub;
+    document.querySelector(`[data-denomsub="${v}"]`).textContent = fmt(sub);
+  });
+  document.getElementById('denomCounterTotal').textContent = fmt(total);
+  document.getElementById('shiftCountedAmount').value = total || '';
+  document.getElementById('shiftCountedAmount').dispatchEvent(new Event('input'));
+}
+
+document.getElementById('shiftCloseBtn').addEventListener('click', ()=>{
+  const expected = computeDrawerBalance();
+  document.getElementById('shiftExpectedAmount').textContent = fmt(expected);
+  document.getElementById('shiftCountedAmount').value = '';
+  document.getElementById('shiftCloseNote').value = '';
+  document.getElementById('shiftDiffAmount').textContent = fmt(0);
+  document.getElementById('shiftDiffAmount').className = 'val';
+  renderDenomCounter();
+  document.getElementById('denomCounterTotal').textContent = '0.00';
+  renderShiftCloseHistory();
+  document.getElementById('shiftCloseModalBg').classList.add('show');
+});
+document.getElementById('closeShiftCloseModal').addEventListener('click', ()=>{
+  document.getElementById('shiftCloseModalBg').classList.remove('show');
+});
+document.getElementById('shiftCountedAmount').addEventListener('input', ()=>{
+  const expected = computeDrawerBalance();
+  const counted = parseFloat(document.getElementById('shiftCountedAmount').value) || 0;
+  const diff = counted - expected;
+  const diffEl = document.getElementById('shiftDiffAmount');
+  diffEl.textContent = (diff<0?'-':'+') + fmt(Math.abs(diff));
+  diffEl.className = 'val ' + (diff===0 ? 'profit-pos' : diff<0 ? 'profit-neg' : 'neutral');
+});
+document.getElementById('saveShiftCloseBtn').addEventListener('click', ()=>{
+  const expected = computeDrawerBalance();
+  const counted = parseFloat(document.getElementById('shiftCountedAmount').value);
+  const note = document.getElementById('shiftCloseNote').value.trim();
+  if(isNaN(counted)){ toast('กรุณาใส่จำนวนเงินที่นับได้'); return; }
+  const diff = counted - expected;
+  shiftCloses.push({
+    id: uid(), date: todayStr(), time: new Date().toTimeString().slice(0,5),
+    cashierName: currentCashier?.name || '-', expected, counted, diff, note
+  });
+  saveAll();
+  toast(diff===0 ? 'เงินตรงเป๊ะ ✅' : diff>0 ? `เงินเกิน ${fmt(diff)} บาท` : `เงินขาด ${fmt(Math.abs(diff))} บาท ⚠️`);
+  renderShiftCloseHistory();
+});
+function renderShiftCloseHistory(){
+  const el = document.getElementById('shiftCloseHistory');
+  const recent = [...shiftCloses].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  if(!recent.length){ el.innerHTML = '<div class="empty">ยังไม่มีประวัติ</div>'; return; }
+  el.innerHTML = recent.map(s=>{
+    const color = s.diff===0 ? '#6cf29b' : s.diff<0 ? '#ff8a8a' : '#5ee6ff';
+    const sign = s.diff>0 ? '+' : '';
+    return `<div class="adjust-history-item">
+      <div>${s.date} ${s.time} · ${escapeHtml(s.cashierName)}</div>
+      <div style="color:${color}; font-weight:700;">${sign}${fmt(s.diff)}</div>
+    </div>`;
+  }).join('');
+}
 
 // ================= STOCK ADJUSTMENT =================
 let adjustProductId = null;
@@ -1634,12 +1979,14 @@ function renderAdjustHistory(pid){
 }
 
 document.getElementById('storeSettingsBtn').addEventListener('click', ()=>{
-  document.getElementById('storeName').value = storeSettings.name || '';
-  document.getElementById('storeAddress').value = storeSettings.address || '';
-  document.getElementById('storePhone').value = storeSettings.phone || '';
-  document.getElementById('storePin').value = '';
-  document.getElementById('storeAdminPin').value = '';
-  document.getElementById('storeSettingsModalBg').classList.add('show');
+  requirePin('กรอกรหัส PIN ระดับสูงสุด เพื่อเข้าหน้าตั้งค่าร้าน', ()=>{
+    document.getElementById('storeName').value = storeSettings.name || '';
+    document.getElementById('storeAddress').value = storeSettings.address || '';
+    document.getElementById('storePhone').value = storeSettings.phone || '';
+    document.getElementById('storePin').value = '';
+    document.getElementById('storeAdminPin').value = '';
+    document.getElementById('storeSettingsModalBg').classList.add('show');
+  }, 'admin');
 });
 document.getElementById('closeStoreSettingsModal').addEventListener('click', ()=>{
   document.getElementById('storeSettingsModalBg').classList.remove('show');
@@ -1777,7 +2124,7 @@ function showReceipt(sale){
     <div class="r-title">ใบเสร็จรับเงิน / RECEIPT</div>
     <div class="r-line-solid"></div>
     <div class="r-meta-row"><div>เลขที่: ${receiptNo}</div><div>${dateStr}</div></div>
-    <div class="r-meta-row"><div></div><div>เวลา ${sale.time} น.</div></div>
+    <div class="r-meta-row"><div>${sale.cashierName && sale.cashierName!=='-' ? 'พนักงาน: '+escapeHtml(sale.cashierName) : ''}</div><div>เวลา ${sale.time} น.</div></div>
     <div class="r-line"></div>
     ${itemsHtml}
     <div class="r-line"></div>
@@ -1857,270 +2204,4 @@ function checkBackupReminder(){
   document.getElementById('backupReminderTitle').textContent = lastTs
     ? `📥 ยังไม่ได้สำรองข้อมูลมา ${daysSince} วันแล้ว`
     : `📥 ยังไม่เคยสำรองข้อมูลเลย`;
-  document.getElementById('backupReminderSub').textContent = 'แตะตรงนี้เพื่อบันทึกไฟล์ข้อมูลไว้กันหาย (Export)';
-}
-document.getElementById('backupReminder').addEventListener('click', ()=>{
-  document.getElementById('exportBtn').click();
-});
-
-// ================= HOME =================
-function renderHome(){
-  const today = todayStr();
-  const todaySales = sales.filter(s=>s.date===today);
-  const todayWithdraws = withdraws.filter(w=>w.date===today);
-  const income = todaySales.reduce((a,s)=>a+s.total,0);
-  const cost = todaySales.reduce((a,s)=>a+s.totalCost,0);
-  const wd = todayWithdraws.reduce((a,w)=>a+w.amount,0);
-  const profit = income-cost;
-  const net = profit-wd;
-
-  document.getElementById('hIncome').textContent = fmt(income);
-  document.getElementById('hCost').textContent = fmt(cost);
-  document.getElementById('hWithdraw').textContent = fmt(wd);
-  const pEl = document.getElementById('hProfit');
-  pEl.textContent = (profit<0?'-':'')+fmt(Math.abs(profit));
-  pEl.className = 'val ' + (profit>=0?'profit-pos':'profit-neg');
-  const nEl = document.getElementById('hNet');
-  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
-  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
-
-  const low = products.filter(p=>p.stock <= (p.lowStock ?? 5));
-  const lowEl = document.getElementById('lowStockList');
-  lowEl.innerHTML = low.length ? low.slice(0,6).map(p=>
-    `<div class="prod-item"><div class="prod-left"><div class="prod-name">${escapeHtml(p.name)}</div></div><div class="prod-stock low">เหลือ ${p.stock}</div></div>`
-  ).join('') : '<div class="empty">สต็อกยังปกติดี</div>';
-
-  const recent = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
-  const recEl = document.getElementById('recentSales');
-  recEl.innerHTML = recent.length ? recent.map(s=>{
-    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
-    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
-      <div class="prod-left"><div class="prod-name">${s.time} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(itemNames)}</div></div>
-      <div class="tx-amt income">+${fmt(s.total)}</div>
-    </div>`;
-  }).join('') : '<div class="empty">ยังไม่มีการขายวันนี้</div>';
-  recEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
-    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
-  }));
-}
-
-// ================= REPORT =================
-let reportRange = 'day';
-let reportDate = new Date();
-let lastBestSellers = [];
-
-document.querySelectorAll('.report-toggle .btn-flat').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.report-toggle .btn-flat').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    reportRange = btn.dataset.range;
-    renderReport();
-  });
-});
-document.getElementById('prevRange').addEventListener('click', ()=>{ shiftRange(-1); renderReport(); });
-document.getElementById('nextRange').addEventListener('click', ()=>{ shiftRange(1); renderReport(); });
-
-function shiftRange(dir){
-  if(reportRange==='day') reportDate.setDate(reportDate.getDate()+dir);
-  else if(reportRange==='month') reportDate.setMonth(reportDate.getMonth()+dir);
-  else reportDate.setFullYear(reportDate.getFullYear()+dir);
-}
-function inRange(dateStr){
-  const dt = new Date(dateStr);
-  if(reportRange==='day'){
-    return dt.toISOString().slice(0,10) === reportDate.toISOString().slice(0,10);
-  } else if(reportRange==='month'){
-    return dt.getFullYear()===reportDate.getFullYear() && dt.getMonth()===reportDate.getMonth();
-  } else {
-    return dt.getFullYear()===reportDate.getFullYear();
-  }
-}
-// ================= BILLS (บิลย้อนหลัง) =================
-document.getElementById('billsSearch').addEventListener('input', renderBillsList);
-function renderBillsList(){
-  const q = document.getElementById('billsSearch').value.trim().toLowerCase();
-  let list = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
-  if(q){
-    list = list.filter(s=>
-      generateReceiptNo(s).toLowerCase().includes(q) ||
-      s.items.some(i=>i.name.toLowerCase().includes(q))
-    );
-  }
-  document.getElementById('billsCount').textContent = `ทั้งหมด ${list.length} บิล`;
-  const el = document.getElementById('billsList');
-  if(!list.length){ el.innerHTML = '<div class="empty">ไม่พบบิล</div>'; return; }
-  el.innerHTML = list.map(s=>{
-    const dt = new Date(s.date);
-    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
-    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
-    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
-      <div class="prod-left">
-        <div class="prod-name">${generateReceiptNo(s)}</div>
-        <div class="prod-meta">${dateStr} ${s.time} น. · ${escapeHtml(itemNames)}</div>
-      </div>
-      <div class="tx-amt income">+${fmt(s.total)}</div>
-    </div>`;
-  }).join('');
-  el.querySelectorAll('[data-saleid]').forEach(item=>item.addEventListener('click', ()=>{
-    const s = sales.find(x=>x.id===item.dataset.saleid); if(s) showReceipt(s);
-  }));
-}
-
-let lastInventoryValueRows = [];
-
-// ================= รายงานมูลค่าสต็อกคงเหลือ (ราคาทุน) แยกตามหมวดหมู่ =================
-function renderInventoryValue(){
-  const groups = {};
-  let grandTotal = 0;
-  products.forEach(p=>{
-    const cat = p.category && p.category.trim() ? p.category.trim() : 'ไม่ระบุหมวดหมู่';
-    const value = (p.stock||0) * (p.cost||0);
-    if(!groups[cat]) groups[cat] = { value:0, units:0, items:0 };
-    groups[cat].value += value;
-    groups[cat].units += (p.stock||0);
-    groups[cat].items += 1;
-    grandTotal += value;
-  });
-  const rows = Object.entries(groups).sort((a,b)=>b[1].value-a[1].value);
-  lastInventoryValueRows = rows;
-  lastInventoryValueRows.grandTotal = grandTotal;
-
-  const el = document.getElementById('inventoryValueList');
-  el.innerHTML = rows.length ? rows.map(([cat,d])=>
-    `<div class="tx-item">
-      <div class="prod-left">
-        <div class="prod-name">${escapeHtml(cat)}</div>
-        <div class="prod-meta">${d.items} รายการสินค้า · ${d.units} ชิ้นคงเหลือ</div>
-      </div>
-      <div class="tx-amt neutral">${fmt(d.value)}</div>
-    </div>`
-  ).join('') : '<div class="empty">ยังไม่มีสินค้าในระบบ</div>';
-  document.getElementById('inventoryValueTotal').textContent = fmt(grandTotal);
-}
-
-function renderReport(){
-  let title;
-  if(reportRange==='day'){
-    title = `${reportDate.getDate()} ${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
-  } else if(reportRange==='month'){
-    title = `${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
-  } else {
-    title = `ปี พ.ศ. ${toBE(reportDate.getFullYear())}`;
-  }
-  document.getElementById('rangeTitle').textContent = title;
-
-  const rangeSales = sales.filter(s=>inRange(s.date));
-  const rangeWithdraws = withdraws.filter(w=>inRange(w.date));
-  const income = rangeSales.reduce((a,s)=>a+s.total,0);
-  const cost = rangeSales.reduce((a,s)=>a+s.totalCost,0);
-  const qty = rangeSales.reduce((a,s)=>a+s.totalQty,0);
-  const wd = rangeWithdraws.reduce((a,w)=>a+w.amount,0);
-  const gross = income-cost;
-  const net = gross-wd;
-
-  document.getElementById('rIncome').textContent = fmt(income);
-  document.getElementById('rCost').textContent = fmt(cost);
-  document.getElementById('rWithdraw').textContent = fmt(wd);
-  document.getElementById('rQty').textContent = qty;
-  const gEl = document.getElementById('rGross');
-  gEl.textContent = (gross<0?'-':'')+fmt(Math.abs(gross));
-  gEl.className = 'val ' + (gross>=0?'profit-pos':'profit-neg');
-  const nEl = document.getElementById('rNet');
-  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
-  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
-
-  // best sellers
-  const tally = {};
-  rangeSales.forEach(s=>s.items.forEach(i=>{
-    if(!tally[i.name]) tally[i.name] = {qty:0, total:0};
-    tally[i.name].qty += i.qty;
-    tally[i.name].total += i.qty*i.price;
-  }));
-  const sorted = Object.entries(tally).sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
-  lastBestSellers = sorted; // เก็บไว้ใช้ตอนพิมพ์
-  const medals = ['🥇','🥈','🥉'];
-  const bsEl = document.getElementById('bestSellers');
-  bsEl.innerHTML = sorted.length ? sorted.map(([name,d],idx)=>{
-    const rankLabel = medals[idx] || `#${idx+1}`;
-    return `<div class="tx-item"><div class="prod-left"><div class="prod-name">${rankLabel} ${escapeHtml(name)}</div><div class="prod-meta">ขายได้ ${d.qty} ชิ้น</div></div><div class="tx-amt income">${fmt(d.total)}</div></div>`;
-  }).join('') : '<div class="empty">ไม่มีข้อมูล</div>';
-
-  // sales list
-  const listEl = document.getElementById('rangeSalesList');
-  const sortedSales = [...rangeSales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
-  listEl.innerHTML = sortedSales.length ? sortedSales.map(s=>{
-    const dt = new Date(s.date);
-    const dateStr = reportRange==='day' ? s.time : `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${s.time}`;
-    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;"><div class="prod-left"><div class="prod-name">${dateStr} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(s.items.map(i=>i.name+' x'+i.qty).join(', '))}</div></div><div class="tx-amt income">+${fmt(s.total)}</div></div>`;
-  }).join('') : '<div class="empty">ไม่มีรายการขายในช่วงนี้</div>';
-  listEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
-    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
-  }));
-}
-
-// ================= EXPORT / IMPORT DATA =================
-document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const payload = { products, sales, purchases, withdraws, adjustments };
-  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const now = new Date();
-  a.href = url;
-  a.download = `pos_data_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  localStorage.setItem(K_LAST_BACKUP, String(Date.now()));
-  checkBackupReminder();
-  toast('ส่งออกไฟล์แล้ว บันทึกไว้ในที่ปลอดภัยด้วยนะครับ');
-});
-document.getElementById('importDataBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
-document.getElementById('importFile').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const obj = JSON.parse(ev.target.result);
-      if(!confirm('นำเข้าข้อมูลและรวมกับข้อมูลเดิมหรือไม่?')) return;
-      const mergeById = (existing, incoming)=>{
-        const ids = new Set(existing.map(x=>x.id));
-        incoming.forEach(item=>{ if(!ids.has(item.id)) existing.push(item); });
-      };
-      if(Array.isArray(obj.products)) mergeById(products, obj.products);
-      if(Array.isArray(obj.sales)) mergeById(sales, obj.sales);
-      if(Array.isArray(obj.purchases)) mergeById(purchases, obj.purchases);
-      if(Array.isArray(obj.withdraws)) mergeById(withdraws, obj.withdraws);
-      if(Array.isArray(obj.adjustments)) mergeById(adjustments, obj.adjustments);
-      saveAll();
-      renderAll();
-      toast('นำเข้าข้อมูลสำเร็จ ✅');
-    }catch(err){ toast('ไฟล์ไม่ถูกต้อง'); }
-    e.target.value='';
-  };
-  reader.readAsText(file);
-});
-
-// ================= INIT =================
-function renderAll(){
-  refreshProductSelects();
-  renderHome();
-  renderStockList();
-  renderImportHistory();
-  renderBillsList();
-  renderReport();
-  renderInventoryValue();
-  checkBackupReminder();
-}
-renderAll();
-
-// ลงทะเบียน Service Worker เพื่อให้ติดตั้งเป็นแอปได้ (Android/Windows)
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{
-      // ถ้าลงทะเบียนไม่สำเร็จ (เช่นเปิดจาก file:// หรือไม่มี sw.js) ไม่กระทบการใช้งานแอปปกติ
-    });
-  });
-}
-</script>
-</body>
-</html>
+  document.getElementById('
