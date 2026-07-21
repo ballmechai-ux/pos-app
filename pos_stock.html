@@ -2204,4 +2204,275 @@ function checkBackupReminder(){
   document.getElementById('backupReminderTitle').textContent = lastTs
     ? `📥 ยังไม่ได้สำรองข้อมูลมา ${daysSince} วันแล้ว`
     : `📥 ยังไม่เคยสำรองข้อมูลเลย`;
-  document.getElementById('
+  document.getElementById('backupReminderSub').textContent = 'แตะตรงนี้เพื่อบันทึกไฟล์ข้อมูลไว้กันหาย (Export)';
+}
+document.getElementById('backupReminder').addEventListener('click', ()=>{
+  document.getElementById('exportBtn').click();
+});
+
+// ================= HOME =================
+function renderHome(){
+  const today = todayStr();
+  const todaySales = sales.filter(s=>s.date===today);
+  const todayWithdraws = withdraws.filter(w=>w.date===today);
+  const income = todaySales.reduce((a,s)=>a+s.total,0);
+  const cost = todaySales.reduce((a,s)=>a+s.totalCost,0);
+  const wd = todayWithdraws.reduce((a,w)=>a+w.amount,0);
+  const profit = income-cost;
+  const net = profit-wd;
+
+  document.getElementById('hIncome').textContent = fmt(income);
+  document.getElementById('hCost').textContent = fmt(cost);
+  document.getElementById('hWithdraw').textContent = fmt(wd);
+  const pEl = document.getElementById('hProfit');
+  pEl.textContent = (profit<0?'-':'')+fmt(Math.abs(profit));
+  pEl.className = 'val ' + (profit>=0?'profit-pos':'profit-neg');
+  const nEl = document.getElementById('hNet');
+  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
+  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
+
+  document.getElementById('drawerBalance').textContent = fmt(computeDrawerBalance());
+
+  const low = products.filter(p=>p.stock <= (p.lowStock ?? 5));
+  const lowEl = document.getElementById('lowStockList');
+  lowEl.innerHTML = low.length ? low.slice(0,6).map(p=>
+    `<div class="prod-item"><div class="prod-left"><div class="prod-name">${escapeHtml(p.name)}</div></div><div class="prod-stock low">เหลือ ${p.stock}</div></div>`
+  ).join('') : '<div class="empty">สต็อกยังปกติดี</div>';
+
+  const recent = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  const recEl = document.getElementById('recentSales');
+  recEl.innerHTML = recent.length ? recent.map(s=>{
+    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
+      <div class="prod-left"><div class="prod-name">${s.time} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(itemNames)}</div></div>
+      <div class="tx-amt income">+${fmt(s.total)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">ยังไม่มีการขายวันนี้</div>';
+  recEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
+// ================= REPORT =================
+let reportRange = 'day';
+let reportDate = new Date();
+let lastBestSellers = [];
+
+document.querySelectorAll('.report-toggle .btn-flat').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.report-toggle .btn-flat').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    reportRange = btn.dataset.range;
+    renderReport();
+  });
+});
+document.getElementById('prevRange').addEventListener('click', ()=>{ shiftRange(-1); renderReport(); });
+document.getElementById('nextRange').addEventListener('click', ()=>{ shiftRange(1); renderReport(); });
+
+function shiftRange(dir){
+  if(reportRange==='day') reportDate.setDate(reportDate.getDate()+dir);
+  else if(reportRange==='month') reportDate.setMonth(reportDate.getMonth()+dir);
+  else reportDate.setFullYear(reportDate.getFullYear()+dir);
+}
+function inRange(dateStr){
+  const dt = new Date(dateStr);
+  if(reportRange==='day'){
+    return dt.toISOString().slice(0,10) === reportDate.toISOString().slice(0,10);
+  } else if(reportRange==='month'){
+    return dt.getFullYear()===reportDate.getFullYear() && dt.getMonth()===reportDate.getMonth();
+  } else {
+    return dt.getFullYear()===reportDate.getFullYear();
+  }
+}
+// ================= BILLS (บิลย้อนหลัง) =================
+document.getElementById('billsSearch').addEventListener('input', renderBillsList);
+function renderBillsList(){
+  const q = document.getElementById('billsSearch').value.trim().toLowerCase();
+  let list = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  if(q){
+    list = list.filter(s=>
+      generateReceiptNo(s).toLowerCase().includes(q) ||
+      s.items.some(i=>i.name.toLowerCase().includes(q))
+    );
+  }
+  document.getElementById('billsCount').textContent = `ทั้งหมด ${list.length} บิล`;
+  const el = document.getElementById('billsList');
+  if(!list.length){ el.innerHTML = '<div class="empty">ไม่พบบิล</div>'; return; }
+  el.innerHTML = list.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
+      <div class="prod-left">
+        <div class="prod-name">${generateReceiptNo(s)}</div>
+        <div class="prod-meta">${dateStr} ${s.time} น. · ${escapeHtml(itemNames)}</div>
+      </div>
+      <div class="tx-amt income">+${fmt(s.total)}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-saleid]').forEach(item=>item.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===item.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
+let lastInventoryValueRows = [];
+
+// ================= รายงานมูลค่าสต็อกคงเหลือ (ราคาทุน) แยกตามหมวดหมู่ =================
+function renderInventoryValue(){
+  const groups = {};
+  let grandTotal = 0;
+  products.forEach(p=>{
+    const cat = p.category && p.category.trim() ? p.category.trim() : 'ไม่ระบุหมวดหมู่';
+    const value = (p.stock||0) * (p.cost||0);
+    if(!groups[cat]) groups[cat] = { value:0, units:0, items:0 };
+    groups[cat].value += value;
+    groups[cat].units += (p.stock||0);
+    groups[cat].items += 1;
+    grandTotal += value;
+  });
+  const rows = Object.entries(groups).sort((a,b)=>b[1].value-a[1].value);
+  lastInventoryValueRows = rows;
+  lastInventoryValueRows.grandTotal = grandTotal;
+
+  const el = document.getElementById('inventoryValueList');
+  el.innerHTML = rows.length ? rows.map(([cat,d])=>
+    `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(cat)}</div>
+        <div class="prod-meta">${d.items} รายการสินค้า · ${d.units} ชิ้นคงเหลือ</div>
+      </div>
+      <div class="tx-amt neutral">${fmt(d.value)}</div>
+    </div>`
+  ).join('') : '<div class="empty">ยังไม่มีสินค้าในระบบ</div>';
+  document.getElementById('inventoryValueTotal').textContent = fmt(grandTotal);
+}
+
+function renderReport(){
+  let title;
+  if(reportRange==='day'){
+    title = `${reportDate.getDate()} ${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
+  } else if(reportRange==='month'){
+    title = `${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
+  } else {
+    title = `ปี พ.ศ. ${toBE(reportDate.getFullYear())}`;
+  }
+  document.getElementById('rangeTitle').textContent = title;
+
+  const rangeSales = sales.filter(s=>inRange(s.date));
+  const rangeWithdraws = withdraws.filter(w=>inRange(w.date));
+  const income = rangeSales.reduce((a,s)=>a+s.total,0);
+  const cost = rangeSales.reduce((a,s)=>a+s.totalCost,0);
+  const qty = rangeSales.reduce((a,s)=>a+s.totalQty,0);
+  const wd = rangeWithdraws.reduce((a,w)=>a+w.amount,0);
+  const gross = income-cost;
+  const net = gross-wd;
+
+  document.getElementById('rIncome').textContent = fmt(income);
+  document.getElementById('rCost').textContent = fmt(cost);
+  document.getElementById('rWithdraw').textContent = fmt(wd);
+  document.getElementById('rQty').textContent = qty;
+  const gEl = document.getElementById('rGross');
+  gEl.textContent = (gross<0?'-':'')+fmt(Math.abs(gross));
+  gEl.className = 'val ' + (gross>=0?'profit-pos':'profit-neg');
+  const nEl = document.getElementById('rNet');
+  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
+  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
+
+  // best sellers
+  const tally = {};
+  rangeSales.forEach(s=>s.items.forEach(i=>{
+    if(!tally[i.name]) tally[i.name] = {qty:0, total:0};
+    tally[i.name].qty += i.qty;
+    tally[i.name].total += i.qty*i.price;
+  }));
+  const sorted = Object.entries(tally).sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
+  lastBestSellers = sorted; // เก็บไว้ใช้ตอนพิมพ์
+  const medals = ['🥇','🥈','🥉'];
+  const bsEl = document.getElementById('bestSellers');
+  bsEl.innerHTML = sorted.length ? sorted.map(([name,d],idx)=>{
+    const rankLabel = medals[idx] || `#${idx+1}`;
+    return `<div class="tx-item"><div class="prod-left"><div class="prod-name">${rankLabel} ${escapeHtml(name)}</div><div class="prod-meta">ขายได้ ${d.qty} ชิ้น</div></div><div class="tx-amt income">${fmt(d.total)}</div></div>`;
+  }).join('') : '<div class="empty">ไม่มีข้อมูล</div>';
+
+  // sales list
+  const listEl = document.getElementById('rangeSalesList');
+  const sortedSales = [...rangeSales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  listEl.innerHTML = sortedSales.length ? sortedSales.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = reportRange==='day' ? s.time : `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${s.time}`;
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;"><div class="prod-left"><div class="prod-name">${dateStr} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(s.items.map(i=>i.name+' x'+i.qty).join(', '))}</div></div><div class="tx-amt income">+${fmt(s.total)}</div></div>`;
+  }).join('') : '<div class="empty">ไม่มีรายการขายในช่วงนี้</div>';
+  listEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
+// ================= EXPORT / IMPORT DATA =================
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const payload = { products, sales, purchases, withdraws, adjustments };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  a.href = url;
+  a.download = `pos_data_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  localStorage.setItem(K_LAST_BACKUP, String(Date.now()));
+  checkBackupReminder();
+  toast('ส่งออกไฟล์แล้ว บันทึกไว้ในที่ปลอดภัยด้วยนะครับ');
+});
+document.getElementById('importDataBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const obj = JSON.parse(ev.target.result);
+      if(!confirm('นำเข้าข้อมูลและรวมกับข้อมูลเดิมหรือไม่?')) return;
+      const mergeById = (existing, incoming)=>{
+        const ids = new Set(existing.map(x=>x.id));
+        incoming.forEach(item=>{ if(!ids.has(item.id)) existing.push(item); });
+      };
+      if(Array.isArray(obj.products)) mergeById(products, obj.products);
+      if(Array.isArray(obj.sales)) mergeById(sales, obj.sales);
+      if(Array.isArray(obj.purchases)) mergeById(purchases, obj.purchases);
+      if(Array.isArray(obj.withdraws)) mergeById(withdraws, obj.withdraws);
+      if(Array.isArray(obj.adjustments)) mergeById(adjustments, obj.adjustments);
+      saveAll();
+      renderAll();
+      toast('นำเข้าข้อมูลสำเร็จ ✅');
+    }catch(err){ toast('ไฟล์ไม่ถูกต้อง'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+// ================= INIT =================
+function renderAll(){
+  refreshProductSelects();
+  renderHome();
+  renderStockList();
+  renderImportHistory();
+  renderBillsList();
+  renderReport();
+  renderInventoryValue();
+  renderStaffList();
+  refreshCashierSelect();
+  updateCashierGateUI();
+  checkBackupReminder();
+}
+renderAll();
+
+// ลงทะเบียน Service Worker เพื่อให้ติดตั้งเป็นแอปได้ (Android/Windows)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{
+      // ถ้าลงทะเบียนไม่สำเร็จ (เช่นเปิดจาก file:// หรือไม่มี sw.js) ไม่กระทบการใช้งานแอปปกติ
+    });
+  });
+}
+</script>
+</body>
+</html>
