@@ -1,0 +1,3297 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ระบบร้านค้า - สต็อก/ขาย/กำไร</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#11998e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="POS ร้านค้า">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+
+  :root {
+    --ink: #14161f;
+    --ink-2: #1a1d29;
+    --surface: rgba(255,255,255,.045);
+    --surface-2: rgba(255,255,255,.07);
+    --line: rgba(255,255,255,.09);
+    --text: #f1eee6;
+    --muted: #9a9db0;
+    --gold: #e3a542;
+    --gold-deep: #b5791f;
+    --gold-soft: rgba(227,165,66,.16);
+    --jade: #3fc492;
+    --jade-deep: #1f9b6e;
+    --rose: #ec6b81;
+    --rose-deep: #c94b62;
+    --sky: #6db3e8;
+    --plum: #a382d6;
+  }
+
+  body {
+    font-family:'Sarabun','Segoe UI',sans-serif;
+    background: linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
+    min-height:100vh; color:var(--text); padding-bottom:88px;
+    font-feature-settings:"tnum" 1;
+  }
+  header {
+    padding:14px 16px 12px; display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,.02); border-bottom:1px solid var(--line);
+  }
+  #headerTitleArea { flex:1; text-align:center; }
+  header h1 { font-size:18px; font-weight:800; letter-spacing:.2px; }
+  header .sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .back-btn {
+    width:36px; height:36px; border-radius:50%; flex-shrink:0;
+    background:var(--surface-2); display:flex; align-items:center; justify-content:center;
+    font-size:19px; cursor:pointer; border:1px solid var(--line); color:var(--text);
+  }
+  .back-btn:active { background:rgba(255,255,255,.18); }
+
+  .menu-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:2px; }
+  .menu-tile {
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:14px 6px 12px; text-align:center; cursor:pointer; transition:transform .12s, background .12s;
+  }
+  .menu-tile:active { transform:scale(.94); background:var(--surface-2); }
+  .tile-icon-badge {
+    width:42px; height:42px; border-radius:13px; margin:0 auto 7px;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    background:var(--gold-soft);
+  }
+  .menu-tile[data-nav="scan"] .tile-icon-badge { background:rgba(227,165,66,.18); }
+  .menu-tile[data-nav="stock"] .tile-icon-badge { background:rgba(109,179,232,.18); }
+  .menu-tile[data-nav="import"] .tile-icon-badge { background:rgba(63,196,146,.18); }
+  .menu-tile[data-nav="bills"] .tile-icon-badge { background:rgba(163,130,214,.2); }
+  .menu-tile[data-nav="report"] .tile-icon-badge { background:rgba(236,107,129,.18); }
+  .menu-tile .tile-label { font-size:12px; font-weight:700; line-height:1.3; }
+
+  .page { display:none; padding:4px 12px 10px; }
+  .page.active { display:block; }
+
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:15px; margin-bottom:12px; }
+  .label { font-size:11px; color:var(--muted); margin-bottom:4px; }
+
+  .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat { background:var(--surface-2); border-radius:12px; padding:10px; text-align:center; }
+  .stat .label { margin-bottom:3px; }
+  .stat .val { font-size:17px; font-weight:800; }
+  .val.income, .val.profit-pos { color:var(--jade); }
+  .val.expense, .val.profit-neg { color:var(--rose); }
+  .val.neutral { color:var(--sky); }
+
+  select, input[type=date], input[type=number], input[type=text], textarea {
+    background:var(--surface-2); border:1px solid var(--line); color:var(--text);
+    padding:9px 11px; border-radius:10px; font-size:14px; width:100%; font-family:inherit;
+  }
+  select option { color:#111; }
+  .field { margin-bottom:10px; }
+  .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+
+  .btn-main { width:100%; padding:13px; border:none; border-radius:12px; font-size:15px; font-weight:800;
+    background:linear-gradient(135deg,#f0bd66,var(--gold-deep)); color:#2c1c05; cursor:pointer; font-family:inherit; }
+  .btn-flat { padding:9px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--text); font-size:12.5px; cursor:pointer; font-family:inherit; }
+  .btn-green { background:linear-gradient(135deg,#59d9a8,var(--jade-deep)); color:#04241d; font-weight:700; }
+  .btn-red { background:linear-gradient(135deg,#f295a5,var(--rose-deep)); color:#3a0d10; font-weight:700; }
+  .row-btns { display:flex; gap:8px; margin-bottom:10px; }
+  .row-btns .btn-flat { flex:1; text-align:center; }
+
+  #scannerViewport, #scannerViewportImport, #scannerViewportProduct {
+    position:relative !important;
+    width:100%;
+    height:auto !important;
+    aspect-ratio:4/3;
+    padding-bottom:0 !important;
+    overflow:hidden;
+    border-radius:14px;
+    background:#000;
+  }
+  #scannerViewport video, #scannerViewport canvas,
+  #scannerViewportImport video, #scannerViewportImport canvas,
+  #scannerViewportProduct video, #scannerViewportProduct canvas {
+    position:absolute; inset:0; width:100% !important; height:100% !important; object-fit:cover; display:block;
+  }
+  .scan-hint { text-align:center; font-size:12px; color:var(--muted); margin-top:6px; }
+
+  .prod-item, .tx-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:11px 4px; border-bottom:1px solid var(--line); gap:8px;
+  }
+  .prod-item:last-child, .tx-item:last-child { border-bottom:none; }
+  .prod-left { flex:1; min-width:0; }
+  .prod-name { font-size:14px; font-weight:600; }
+  .prod-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .prod-stock { font-size:11px; margin-top:2px; }
+  .prod-stock.low { color:var(--gold); font-weight:700; }
+  .prod-actions { display:flex; gap:6px; flex-shrink:0; }
+  .icon-btn { background:none; border:none; font-size:16px; cursor:pointer; opacity:.75; padding:4px; }
+
+  .cart-item { display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px solid var(--line); }
+  .cart-item:last-child { border-bottom:none; }
+  .cart-name { flex:1; font-size:13.5px; }
+  .qty-ctrl { display:flex; align-items:center; gap:6px; }
+  .qty-btn { width:28px; height:28px; border-radius:50%; border:none; background:var(--surface-2); color:var(--text); font-size:16px; cursor:pointer; }
+  .qty-val { min-width:22px; text-align:center; font-weight:700; font-size:14px; }
+  .cart-sub { font-size:13.5px; font-weight:700; min-width:70px; text-align:right; }
+
+  .empty { text-align:center; padding:26px 8px; color:var(--muted); font-size:13px; }
+
+  .month-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .month-bar .nav-btn { background:var(--surface-2); border:none; color:var(--text); width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; }
+  .month-bar .title { font-size:14.5px; font-weight:700; }
+
+  .footer-actions { position:fixed; bottom:0; left:0; right:0; background:rgba(15,17,24,.92);
+    backdrop-filter:blur(10px); padding:9px 12px; display:flex; gap:7px; border-top:1px solid var(--line); }
+  .footer-actions button { flex:1; }
+
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:50; align-items:flex-end; }
+  .modal-bg.show { display:flex; }
+  .modal { background:var(--ink-2); width:100%; border-radius:20px 20px 0 0; padding:18px 15px 22px; max-height:88vh; overflow-y:auto; position:relative; border-top:1px solid var(--line); }
+  .modal h3 { margin-bottom:12px; font-size:16px; }
+  .close-x { position:absolute; right:18px; top:14px; font-size:20px; color:var(--muted); cursor:pointer; }
+
+  .toast { position:fixed; top:16px; left:50%; transform:translateX(-50%); background:var(--jade-deep); color:#fff;
+    padding:10px 18px; border-radius:30px; font-size:13px; z-index:100; opacity:0; transition:.3s; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+  .toast.show { opacity:1; top:26px; }
+
+  .report-toggle { display:flex; gap:6px; margin-bottom:12px; }
+  .report-toggle .btn-flat { flex:1; text-align:center; }
+  .report-toggle .btn-flat.active { background:linear-gradient(135deg,#59d9a8,var(--jade-deep)); color:#04241d; font-weight:700; }
+
+  .search-box { margin-bottom:10px; }
+
+  .receipt-box {
+    background:#fbf8f1; color:#1c1a15; border-radius:4px; padding:20px 18px;
+    font-family:'Courier New', monospace; font-size:12.5px; line-height:1.5;
+    box-shadow:0 4px 20px rgba(0,0,0,.3);
+  }
+  .receipt-box .r-store-name { text-align:center; font-weight:800; font-size:17px; margin-bottom:2px; letter-spacing:.5px; }
+  .receipt-box .r-store-meta { text-align:center; font-size:10.5px; opacity:.75; line-height:1.4; }
+  .receipt-box .r-title { text-align:center; font-weight:700; font-size:12px; margin:8px 0 2px; letter-spacing:1px; }
+  .receipt-box .r-sub { text-align:center; font-size:11px; opacity:.7; margin-bottom:4px; }
+  .receipt-box .r-meta-row { display:flex; justify-content:space-between; font-size:11px; opacity:.75; }
+  .receipt-box .r-line { border-top:1px dashed #a99; margin:8px 0; }
+  .receipt-box .r-line-solid { border-top:1.5px solid #332f28; margin:6px 0; }
+  .receipt-box .r-item-name { font-weight:700; font-size:12.5px; margin-top:6px; }
+  .receipt-box .r-row { display:flex; justify-content:space-between; font-size:12px; }
+  .receipt-box .r-row.r-item-sub { padding-left:10px; opacity:.85; }
+  .receipt-box .r-total-row { display:flex; justify-content:space-between; font-weight:800; font-size:16px; margin-top:4px; color:var(--gold-deep); }
+  .receipt-box .r-footer { text-align:center; font-size:11px; opacity:.65; margin-top:14px; }
+  .receipt-box .r-thanks { text-align:center; font-size:13px; font-weight:700; margin-top:10px; }
+
+  #backupReminder.warn { display:flex !important; background:var(--gold-soft); border:1px solid rgba(227,165,66,.4); }
+  #backupReminder.warn #backupReminderTitle { color:var(--gold); }
+  #backupReminder.danger { display:flex !important; background:rgba(236,107,129,.15); border:1px solid rgba(236,107,129,.5); }
+  #backupReminder.danger #backupReminderTitle { color:var(--rose); }
+
+  .adjust-history-item { display:flex; justify-content:space-between; padding:8px 2px; border-bottom:1px solid var(--line); font-size:12px; }
+  .adjust-history-item:last-child { border-bottom:none; }
+
+  .denom-row { display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--line); }
+  .denom-row:last-child { border-bottom:none; }
+  .denom-row .denom-label { flex:1; font-size:13px; }
+  .denom-row input { width:68px; text-align:center; padding:8px 4px; flex-shrink:0; }
+  .denom-row .denom-sub { width:76px; text-align:right; font-size:12.5px; font-weight:700; color:var(--muted); flex-shrink:0; }
+
+  @media print {
+    body > *:not(#receiptModalBg) { display:none !important; }
+    #receiptModalBg {
+      display:block !important; position:static !important;
+      background:none !important; padding:0 !important; margin:0 !important;
+      align-items:normal !important;
+    }
+    #receiptModalBg .modal {
+      position:static !important; width:80mm !important; max-width:80mm !important;
+      max-height:none !important; overflow:visible !important;
+      background:none !important; box-shadow:none !important; padding:0 !important; margin:0 auto !important;
+    }
+    #receiptModalBg .close-x, #receiptModalBg .row-btns { display:none !important; }
+    #receiptPrintArea { width:100% !important; }
+    .receipt-box { box-shadow:none !important; padding:6mm 4mm !important; }
+  }
+
+  .pay-total-box { text-align:center; padding:12px; background:var(--surface-2); border-radius:14px; margin-bottom:10px; }
+  .pay-total-box .label { font-size:12px; color:var(--muted); }
+  .pay-total-box .amt { font-size:28px; font-weight:800; color:var(--jade); }
+  .pay-display-box { text-align:center; padding:14px; background:var(--surface-2); border:2px solid rgba(227,165,66,.5); border-radius:14px; margin-bottom:10px; }
+  .pay-display-box .amt { font-size:32px; font-weight:800; font-family:'Courier New',monospace; color:var(--gold); }
+  .pay-change-box { text-align:center; padding:10px; border-radius:12px; margin-bottom:12px; }
+  .pay-change-box .label { font-size:12px; color:var(--muted); }
+  .pay-change-box .amt { font-size:22px; font-weight:800; }
+  .quick-cash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .quick-cash-btn { padding:12px 4px; text-align:center; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface-2); color:var(--text); font-weight:700; font-size:14px; cursor:pointer; }
+  .quick-cash-btn.exact { background:linear-gradient(135deg,#59d9a8,var(--jade-deep)); color:#04241d; grid-column:span 3; }
+  .keypad-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .keypad-btn { padding:16px 4px; text-align:center; border-radius:12px; border:1px solid var(--line);
+    background:var(--surface); color:var(--text); font-weight:700; font-size:19px; cursor:pointer; }
+  .keypad-btn.clear { color:var(--rose); font-size:15px; }
+  .keypad-btn.backspace { font-size:18px; }
+
+  @keyframes scanLineMove {
+    0% { top: 12%; opacity:.4; }
+    50% { top: 88%; opacity:1; }
+    100% { top: 12%; opacity:.4; }
+  }
+  .scan-line {
+    position:absolute; left:6%; right:6%; height:3px;
+    background:linear-gradient(90deg, transparent, #ff3b3b 20%, #ff3b3b 80%, transparent);
+    box-shadow:0 0 10px 3px rgba(255,59,59,.7);
+    animation: scanLineMove 1.8s ease-in-out infinite;
+    z-index:6; pointer-events:none; border-radius:2px;
+  }
+</style>
+</head>
+<body>
+
+<header id="appHeader">
+  <div class="back-btn" id="headerBackBtn" style="display:none;">←</div>
+  <div id="headerTitleArea">
+    <h1 id="headerTitle">🏪 ระบบร้านค้า</h1>
+    <div class="sub" id="headerSub">สต็อก · สแกนขาย · นำเข้า · สรุปกำไร</div>
+  </div>
+</header>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+  <div id="backupReminder" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:14px; align-items:center; justify-content:space-between; gap:10px; cursor:pointer;">
+    <div style="flex:1;">
+      <div style="font-weight:700; font-size:13.5px;" id="backupReminderTitle">📥 ยังไม่ได้สำรองข้อมูล</div>
+      <div style="font-size:11.5px; opacity:.85; margin-top:2px;" id="backupReminderSub">กดเพื่อบันทึกไฟล์ข้อมูลไว้กันหาย</div>
+    </div>
+    <div style="font-size:20px;">⬇️</div>
+  </div>
+
+  <div class="card">
+    <div class="menu-grid">
+      <div class="menu-tile" data-nav="scan"><div class="tile-icon">📷</div><div class="tile-label">ขายสินค้า</div></div>
+      <div class="menu-tile" data-nav="stock"><div class="tile-icon">📦</div><div class="tile-label">สต็อก</div></div>
+      <div class="menu-tile" data-nav="import"><div class="tile-icon">🚚</div><div class="tile-label">นำเข้า</div></div>
+      <div class="menu-tile" data-nav="bills"><div class="tile-icon">🧾</div><div class="tile-label">บิล</div></div>
+      <div class="menu-tile" data-nav="report"><div class="tile-icon">📊</div><div class="tile-label">รายงาน</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">สรุปวันนี้</div>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">รับเงิน (ยอดขาย)</div><div class="val income" id="hIncome">0</div></div>
+      <div class="stat"><div class="label">ต้นทุนขาย</div><div class="val expense" id="hCost">0</div></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">กำไรขั้นต้น</div><div class="val" id="hProfit">0</div></div>
+      <div class="stat"><div class="label">ค่าใช้จ่าย</div><div class="val expense" id="hWithdraw">0</div></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="stat"><div class="label">กำไรสุทธิวันนี้ (หลังหักค่าใช้จ่าย)</div><div class="val" id="hNet" style="font-size:20px">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">💰 เงินสดในลิ้นชัก (คำนวณ)</div>
+    <div class="stat" style="margin-bottom:10px;"><div class="val neutral" id="drawerBalance" style="font-size:26px">0</div></div>
+    <div class="row-btns">
+      <div class="btn-flat btn-green" id="injectCashBtn">➕ เติมเงินสด</div>
+      <div class="btn-flat btn-red" id="safekeepCashBtn">📤 ถอนเก็บ</div>
+    </div>
+    <div class="btn-flat" id="shiftCloseBtn" style="text-align:center; margin-top:8px;">🧮 นับเงินปิดรอบ</div>
+  </div>
+
+  <div class="card">
+    <div class="row-btns">
+      <div class="btn-flat" id="quickWithdraw">💵 ค่าใช้จ่าย</div>
+      <div class="btn-flat" id="quickAddProduct">➕ เพิ่มสินค้า</div>
+      <div class="btn-flat" id="storeSettingsBtn">⚙️ ตั้งค่าร้าน</div>
+    </div>
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>⚠️ สินค้าใกล้หมด</span>
+      <span class="btn-flat" id="printLowStockBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div id="lowStockList"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">การขายล่าสุด</div>
+    <div id="recentSales"></div>
+  </div>
+</div>
+
+<!-- SCAN & SELL -->
+<div class="page" id="page-scan">
+  <!-- ด่านล็อกอินพนักงานขาย -->
+  <div class="card" id="cashierLoginCard">
+    <div class="label">🔒 กรุณาเข้าสู่ระบบพนักงานก่อนขายสินค้า</div>
+    <div class="field">
+      <label>ชื่อพนักงาน</label>
+      <select id="cashierSelect"><option value="">-- เลือกชื่อพนักงาน --</option></select>
+    </div>
+    <div class="field">
+      <label>รหัส PIN ประจำตัว</label>
+      <input type="password" id="cashierPinInput" placeholder="0000" inputmode="numeric" maxlength="4">
+    </div>
+    <button class="btn-main" id="cashierLoginBtn">เข้าสู่ระบบ</button>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ยังไม่มีรายชื่อพนักงาน? ไปเพิ่มได้ที่ "⚙️ ตั้งค่าร้าน" ในหน้าหลัก</div>
+  </div>
+
+  <!-- แถบแสดงพนักงานที่ล็อกอินอยู่ -->
+  <div class="card" id="cashierStatusBar" style="display:none; padding:12px 16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>👤 พนักงาน: <b id="cashierNameDisplay"></b></div>
+      <div class="btn-flat" id="cashierLogoutBtn" style="font-size:12px; padding:6px 12px;">ออกจากระบบ</div>
+    </div>
+  </div>
+
+  <div id="saleContentArea" style="display:none;">
+  <div class="card">
+    <div id="scannerViewport" style="height:0; padding-bottom:56%; display:none;"></div>
+    <div class="row-btns" style="margin-top:8px;">
+      <div class="btn-flat btn-green" id="startScanBtn" style="flex:1">📷 เปิดกล้องสแกน</div>
+      <div class="btn-flat btn-red" id="stopScanBtn" style="flex:1; display:none;">⏹ ปิดกล้อง</div>
+    </div>
+    <div class="btn-flat" id="switchCamBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
+    <div class="scan-hint" id="scanHint">กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า</div>
+    <div class="field" style="margin-top:10px;">
+      <label>🔫 ช่องรับปืนยิงบาร์โค้ด (คลิกในช่องนี้ก่อนยิง แล้วเลขจะเข้าอัตโนมัติ)</label>
+      <input type="text" id="scanCodeInput" placeholder="ยิงบาร์โค้ด หรือพิมพ์เลขแล้วกด Enter" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label>🔍 ค้นหาสินค้าด้วยชื่อ</label>
+      <input type="text" id="sellSearchInput" placeholder="พิมพ์ชื่อสินค้าเพื่อค้นหา..." autocomplete="off">
+      <div id="sellSearchResults" style="margin-top:6px;"></div>
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label>หรือเลือกสินค้าด้วยมือ</label>
+      <select id="manualProductSelect"><option value="">-- เลือกสินค้า --</option></select>
+    </div>
+    <div class="btn-flat" id="manualAddBtn" style="text-align:center;">+ เพิ่มลงตะกร้า</div>
+    <div class="btn-flat" id="noBarcodeSaleBtn" style="text-align:center; margin-top:8px;">🏷️ ขายสินค้าไม่มีบาร์โค้ด</div>
+  </div>
+
+  <div class="card">
+    <div class="label">ตะกร้าสินค้า</div>
+    <div id="cartList"></div>
+    <div style="height:8px"></div>
+    <div class="stat" style="margin-bottom:10px;"><div class="label">ยอดรวม</div><div class="val income" id="cartTotal" style="font-size:22px">0</div></div>
+    <button class="btn-main" id="confirmSaleBtn">💳 ชำระเงิน</button>
+  </div>
+  </div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="page-stock">
+  <div id="dupWarningBanner" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:14px; background:rgba(236,107,129,.15); border:1px solid rgba(236,107,129,.4); cursor:pointer;">
+    <div style="font-weight:700; font-size:13.5px; color:var(--rose);" id="dupWarningTitle">⚠️ พบสินค้าซ้ำ</div>
+    <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">แตะเพื่อจัดการรวมสินค้าซ้ำเป็นรายการเดียว</div>
+  </div>
+  <div class="card">
+    <div class="search-box">
+      <input type="text" id="stockSearch" placeholder="🔍 ค้นหาสินค้า / บาร์โค้ด">
+    </div>
+    <div class="btn-flat btn-green" id="addProductBtn" style="text-align:center; margin-bottom:10px;">+ เพิ่มสินค้าใหม่</div>
+    <div id="productList"></div>
+  </div>
+</div>
+
+<!-- IMPORT -->
+<div class="page" id="page-import">
+  <div class="card">
+    <div class="label">รับสินค้าเข้า (ซื้อของนำเข้าสต็อก)</div>
+    <div id="scannerViewportImport" style="height:0; padding-bottom:56%; display:none;"></div>
+    <div class="row-btns" style="margin-top:8px;">
+      <div class="btn-flat btn-green" id="startScanImportBtn" style="flex:1">📷 สแกนสินค้า</div>
+      <div class="btn-flat btn-red" id="stopScanImportBtn" style="flex:1; display:none;">⏹ ปิดกล้อง</div>
+    </div>
+    <div class="btn-flat" id="switchCamImportBtn" style="text-align:center; margin-top:6px; display:none;">🔄 สลับกล้อง (ถ้าโฟกัสไม่ติด)</div>
+    <div class="field" style="margin-top:10px;">
+      <label>🔫 ช่องรับปืนยิงบาร์โค้ด</label>
+      <input type="text" id="importCodeInput" placeholder="ยิงบาร์โค้ด หรือพิมพ์เลขแล้วกด Enter" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>เลือกสินค้า</label>
+      <select id="importProductSelect"><option value="">-- เลือกสินค้า --</option></select>
+    </div>
+    <div class="field">
+      <label>จำนวนที่รับเข้า</label>
+      <input type="number" id="importQty" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>ราคาทุน/หน่วย (บาท) — แก้ไขได้หากราคาทุนเปลี่ยน</label>
+      <input type="number" id="importCost" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>ราคาขาย/หน่วย (บาท) — แก้ไขได้ถ้าจะปรับราคาขายใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
+      <input type="number" id="importPrice" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>ผู้รับสินค้า</label>
+      <select id="importReceivedBy"><option value="">-- ไม่ระบุ --</option></select>
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="importNote" placeholder="เช่น ชื่อร้าน/ผู้ขาย (ถ้ามี)">
+    </div>
+    <div class="row-btns">
+      <div class="btn-flat" id="addToImportBatchBtn" style="flex:1; text-align:center;">➕ เพิ่มลงรายการรอบันทึก</div>
+      <button class="btn-main" id="confirmImportBtn" style="flex:1;">📥 บันทึกทันที (รายการเดียว)</button>
+    </div>
+  </div>
+
+  <div class="card" id="importBatchCard" style="display:none;">
+    <div class="label">🧾 รายการรอบันทึก (<span id="importBatchCount">0</span> รายการ)</div>
+    <div id="importBatchList"></div>
+    <div class="stat" style="margin:10px 0;"><div class="label">มูลค่ารวม</div><div class="val expense" id="importBatchTotal" style="font-size:18px">0</div></div>
+    <button class="btn-main" id="saveImportBatchBtn">✅ บันทึกรับสินค้าเข้าทั้งหมด</button>
+  </div>
+
+  <div class="card">
+    <div class="label">ประวัติการนำเข้าล่าสุด</div>
+    <div id="importHistory"></div>
+  </div>
+</div>
+
+<!-- BILLS (บิลย้อนหลัง) -->
+<div class="page" id="page-bills">
+  <div class="card">
+    <div class="search-box">
+      <input type="text" id="billsSearch" placeholder="🔍 ค้นหาเลขที่บิล / ชื่อสินค้า">
+    </div>
+    <div class="row-btns">
+      <div class="field" style="flex:1; margin-bottom:0;">
+        <label>ตั้งแต่วันที่</label>
+        <input type="date" id="billsFromDate">
+      </div>
+      <div class="field" style="flex:1; margin-bottom:0;">
+        <label>ถึงวันที่</label>
+        <input type="date" id="billsToDate">
+      </div>
+    </div>
+    <div class="report-toggle" style="margin-top:10px;">
+      <div class="btn-flat active" data-method="">ทั้งหมด</div>
+      <div class="btn-flat" data-method="cash">💵 เงินสด</div>
+      <div class="btn-flat" data-method="transfer">📱 โอนเงิน</div>
+    </div>
+    <div style="height:4px"></div>
+    <div class="btn-flat" id="clearBillsDateBtn" style="text-align:center;">ล้างตัวกรองวันที่</div>
+    <div style="height:10px"></div>
+    <div class="label" id="billsCount">ทั้งหมด 0 บิล</div>
+  </div>
+  <div class="card">
+    <div id="billsList"></div>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div class="page" id="page-report">
+  <div class="card">
+    <div class="report-toggle">
+      <div class="btn-flat active" data-range="day">รายวัน</div>
+      <div class="btn-flat" data-range="month">รายเดือน</div>
+      <div class="btn-flat" data-range="year">รายปี</div>
+    </div>
+    <div class="month-bar">
+      <button class="nav-btn" id="prevRange">‹</button>
+      <div class="title" id="rangeTitle">-</div>
+      <button class="nav-btn" id="nextRange">›</button>
+    </div>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">รับเงิน (ยอดขาย)</div><div class="val income" id="rIncome">0</div></div>
+      <div class="stat"><div class="label">ต้นทุนขาย</div><div class="val expense" id="rCost">0</div></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="summary-grid">
+      <div class="stat"><div class="label">ถอนเงิน/ค่าใช้จ่าย</div><div class="val expense" id="rWithdraw">0</div></div>
+      <div class="stat"><div class="label">จำนวนชิ้นที่ขาย</div><div class="val neutral" id="rQty">0</div></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="stat"><div class="label">กำไรขั้นต้น</div><div class="val" id="rGross" style="font-size:18px">0</div></div>
+    <div style="height:8px"></div>
+    <div class="stat"><div class="label">กำไรสุทธิ (หลังหักถอนเงิน)</div><div class="val" id="rNet" style="font-size:20px">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>🏆 สินค้าขายดี (ตามช่วงที่เลือก)</span>
+      <span class="btn-flat" id="printBestSellersBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div id="bestSellers"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>รายการขายในช่วงนี้</span>
+      <span class="btn-flat" id="printRangeSalesBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div id="rangeSalesList"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>💰 มูลค่าสต็อกคงเหลือ (ราคาทุน)</span>
+      <span class="btn-flat" id="printInventoryValueBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div id="inventoryValueList"></div>
+    <div style="height:8px"></div>
+    <div class="stat"><div class="label">มูลค่าต้นทุนสต็อกรวมทั้งร้าน</div><div class="val neutral" id="inventoryValueTotal" style="font-size:22px">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="label">🔍 ค้นหาสินค้า (ชื่อ หรือ รหัส/บาร์โค้ด)</div>
+    <div class="search-box">
+      <input type="text" id="productSearchInput" placeholder="พิมพ์ชื่อสินค้าหรือรหัสสินค้า...">
+    </div>
+    <div id="productSearchResults"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>📉 สินค้าค้างสต็อก (ไม่มีการขายนาน)</span>
+      <span class="btn-flat" id="printDeadStockBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div class="field" style="margin-bottom:8px;">
+      <label>ไม่มีการขายมากกว่า (วัน)</label>
+      <select id="deadStockDays">
+        <option value="14">14 วัน</option>
+        <option value="30" selected>30 วัน</option>
+        <option value="60">60 วัน</option>
+        <option value="90">90 วัน</option>
+      </select>
+    </div>
+    <div id="deadStockList"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>📦 แนะนำสั่งซื้อสินค้า (จากยอดขายเฉลี่ย)</span>
+      <span class="btn-flat" id="printReorderBtn" style="font-size:11px; padding:6px 10px;">🖨️ พิมพ์</span>
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">คำนวณจากยอดขายเฉลี่ย 4 สัปดาห์ล่าสุด แนะนำให้สั่งเพิ่มถ้าสต็อกเหลือไม่พอขาย ~4 สัปดาห์</div>
+    <div id="reorderList"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">📱 รายการรอยืนยันรับเงินโอน</div>
+    <div id="unconfirmedTransfersList"></div>
+  </div>
+
+  <div class="card">
+    <div class="label">🔍 ค้นหาประวัติการรับสินค้า</div>
+    <div class="field">
+      <label>ผู้รับสินค้า</label>
+      <select id="importSearchStaff"><option value="">-- ทั้งหมด --</option></select>
+    </div>
+    <div class="row-btns">
+      <div class="field" style="flex:1; margin-bottom:0;">
+        <label>ตั้งแต่วันที่</label>
+        <input type="date" id="importSearchFrom">
+      </div>
+      <div class="field" style="flex:1; margin-bottom:0;">
+        <label>ถึงวันที่</label>
+        <input type="date" id="importSearchTo">
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <div class="btn-flat btn-green" id="runImportSearchBtn" style="text-align:center;">ค้นหา</div>
+    <div style="height:10px"></div>
+    <div id="importSearchSummary" class="stat" style="display:none; margin-bottom:10px;">
+      <div class="label">ยอดรวมที่ค้นพบ</div>
+      <div class="val expense" id="importSearchTotal" style="font-size:18px">0</div>
+    </div>
+    <div id="importSearchResults"></div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="color:#ff8a8a; margin-bottom:8px;">⚠️ โซนอันตราย</div>
+    <div class="btn-flat btn-red" id="openDeleteCenterBtn" style="text-align:center;">🗑️⚠️ ศูนย์จัดการลบข้อมูล</div>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ต้องใส่รหัส PIN ระดับสูงสุด (แยกจาก PIN ปกติ) — ลบแล้วกู้คืนไม่ได้</div>
+    <div style="font-size:11px; opacity:.6; text-align:center; margin-top:8px;">ลบแล้วกู้คืนไม่ได้ — สินค้า/สต็อกจะไม่ถูกลบ แนะนำ Export สำรองก่อนเสมอ</div>
+  </div>
+</div>
+
+<div class="footer-actions">
+  <button class="btn-flat" id="exportBtn">⬇️ Export</button>
+  <button class="btn-flat" id="importDataBtn">⬆️ Import</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none">
+
+<!-- Product Modal -->
+<div class="modal-bg" id="productModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeProductModal">✕</div>
+    <h3 id="productModalTitle">เพิ่มสินค้าใหม่</h3>
+    <div class="field">
+      <label>บาร์โค้ด</label>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="pBarcode" placeholder="สแกน (บาร์โค้ด/QR) หรือพิมพ์เอง" style="flex:1;" maxlength="64">
+        <button class="btn-flat" id="scanForProductBtn" style="flex-shrink:0;">📷</button>
+      </div>
+      <div id="scannerViewportProduct" style="height:0; padding-bottom:56%; display:none; margin-top:8px;"></div>
+      <div class="btn-flat" id="lookupBarcodeBtn" style="text-align:center; margin-top:8px;">🔍 ค้นหาชื่อสินค้าจากเลขนี้</div>
+      <div id="lookupStatus" class="scan-hint" style="display:none;"></div>
+    </div>
+    <div class="field">
+      <label>ชื่อสินค้า</label>
+      <input type="text" id="pName" placeholder="เช่น น้ำดื่ม 600ml">
+    </div>
+    <div class="field">
+      <label>หมวดหมู่</label>
+      <select id="pCategory">
+        <option value="เครื่องดื่ม">เครื่องดื่ม</option>
+        <option value="ขนม/ของกินเล่น">ขนม/ของกินเล่น</option>
+        <option value="อาหารแห้ง/เครื่องปรุง">อาหารแห้ง/เครื่องปรุง</option>
+        <option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>
+        <option value="เครื่องสำอาง/ของใช้ส่วนตัว">เครื่องสำอาง/ของใช้ส่วนตัว</option>
+        <option value="ยา/เวชภัณฑ์">ยา/เวชภัณฑ์</option>
+        <option value="บุหรี่/เครื่องดื่มแอลกอฮอล์">บุหรี่/เครื่องดื่มแอลกอฮอล์</option>
+        <option value="เครื่องเขียน/อุปกรณ์">เครื่องเขียน/อุปกรณ์</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+        <option value="__custom__">+ เพิ่มหมวดหมู่ใหม่...</option>
+      </select>
+      <input type="text" id="pCategoryCustom" placeholder="พิมพ์ชื่อหมวดหมู่ใหม่" style="display:none; margin-top:8px;">
+    </div>
+    <div class="field">
+      <label>ราคาทุน/หน่วย (บาท)</label>
+      <input type="number" id="pCost" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>ราคาขาย/หน่วย (บาท)</label>
+      <input type="number" id="pPrice" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>จำนวนสต็อกปัจจุบัน</label>
+      <input type="number" id="pStock" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>แจ้งเตือนเมื่อสต็อกต่ำกว่า</label>
+      <input type="number" id="pLowStock" placeholder="5" inputmode="numeric">
+    </div>
+    <button class="btn-main" id="saveProductBtn">บันทึกสินค้า</button>
+  </div>
+</div>
+
+<!-- Withdraw Modal -->
+<div class="modal-bg" id="withdrawModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeWithdrawModal">✕</div>
+    <h3>💵 บันทึกค่าใช้จ่าย</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับค่าใช้จ่ายของร้าน (ค่าเช่า, ค่าน้ำไฟ ฯลฯ) จะถูกหักออกจากกำไรสุทธิ — ถ้าต้องการแค่ "ถอนเงินเก็บ" ไม่ใช่ค่าใช้จ่าย ให้ใช้ปุ่ม "📤 ถอนเก็บ" ในหน้าหลักแทน</div>
+    <div class="field">
+      <label>วันที่</label>
+      <input type="date" id="wDate">
+    </div>
+    <div class="field">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="wAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="wNote" placeholder="เช่น ค่าเช่า, ค่าน้ำไฟ">
+    </div>
+    <button class="btn-main" id="saveWithdrawBtn">บันทึก</button>
+  </div>
+</div>
+
+<!-- Cash Inject Modal (เติมเงินสด) -->
+<div class="modal-bg" id="injectCashModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeInjectCashModal">✕</div>
+    <h3>➕ เติมเงินสดเข้าลิ้นชัก</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับเงินทอนตั้งต้น หรือเติมเงินสดเพิ่มเข้าลิ้นชัก ไม่นับเป็นรายรับ/กำไร แค่เพิ่มยอดเงินสดที่มี</div>
+    <div class="field">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="injectAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="injectNote" placeholder="เช่น เงินทอนตั้งต้น">
+    </div>
+    <button class="btn-main" id="saveInjectBtn">บันทึก</button>
+  </div>
+</div>
+
+<!-- Cash Safekeep Withdrawal Modal (ถอนเก็บ) -->
+<div class="modal-bg" id="safekeepModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeSafekeepModal">✕</div>
+    <h3>📤 ถอนเงินเก็บ (นอกลิ้นชัก)</h3>
+    <div style="font-size:11px; opacity:.6; margin-bottom:10px;">สำหรับเงินที่ถอนออกไปเก็บนอกเครื่อง (เช่น ฝากธนาคาร) เงินยังเป็นของร้าน <b>ไม่ใช่ค่าใช้จ่าย</b> จึงไม่ถูกหักออกจากกำไร แค่ลดยอดเงินสดในลิ้นชัก ต้องใส่ PIN ยืนยัน</div>
+    <div class="field">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="safekeepAmount" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <input type="text" id="safekeepNote" placeholder="เช่น นำฝากธนาคาร">
+    </div>
+    <button class="btn-main" id="saveSafekeepBtn">บันทึก (ต้องใส่ PIN)</button>
+  </div>
+</div>
+
+<!-- Shift Close / Cash Count Modal (นับเงินปิดรอบ) -->
+<div class="modal-bg" id="shiftCloseModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeShiftCloseModal">✕</div>
+    <h3>🧮 นับเงินปิดรอบ</h3>
+    <div id="shiftCountingSection">
+      <div style="font-size:11px; color:var(--muted); margin-bottom:12px;">นับเงินให้ครบก่อน แล้วกดบันทึก — ระบบจะไม่บอกยอดที่ควรมีจนกว่าจะบันทึกเสร็จ เพื่อป้องกันการนับเข้าเป้าทีหลัง</div>
+
+      <div class="label" style="margin-bottom:8px;">💵 นับแบงก์/เหรียญ (กรอกจำนวน "ใบ/เหรียญ" ระบบคูณรวมให้)</div>
+      <div id="denomCounterList"></div>
+      <div class="stat" style="margin:10px 0 12px;">
+        <div class="label">รวมจากการนับ</div>
+        <div class="val income" id="denomCounterTotal" style="font-size:20px">0.00</div>
+      </div>
+
+      <div class="field">
+        <label>นับเงินสดจริงได้เท่าไหร่ (บาท) — เติมอัตโนมัติจากด้านบน หรือแก้เองก็ได้</label>
+        <input type="number" id="shiftCountedAmount" placeholder="0.00" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label>หมายเหตุ</label>
+        <input type="text" id="shiftCloseNote" placeholder="(ถ้ามี)">
+      </div>
+      <button class="btn-main" id="saveShiftCloseBtn">✅ บันทึกการนับ (จะเห็นผลหลังบันทึก)</button>
+    </div>
+
+    <div id="shiftResultSection" style="display:none;">
+      <div class="stat" style="margin-bottom:10px;">
+        <div class="label">ยอดเงินสดที่ควรมี (คำนวณจากระบบ)</div>
+        <div class="val neutral" id="shiftResultExpected" style="font-size:20px">0</div>
+      </div>
+      <div class="stat" style="margin-bottom:10px;">
+        <div class="label">นับได้จริง</div>
+        <div class="val" id="shiftResultCounted" style="font-size:20px">0</div>
+      </div>
+      <div class="stat" style="margin-bottom:14px;">
+        <div class="label">ผลต่าง</div>
+        <div class="val" id="shiftResultDiff" style="font-size:24px">0</div>
+      </div>
+      <div class="row-btns">
+        <div class="btn-flat" id="printShiftResultBtn" style="flex:1; text-align:center;">🖨️ พิมพ์ใบนับเงิน</div>
+        <div class="btn-flat btn-green" id="newShiftCountBtn" style="flex:1; text-align:center;">นับรอบใหม่</div>
+      </div>
+    </div>
+
+    <div style="height:14px"></div>
+    <div class="label">ประวัติการปิดรอบล่าสุด (นับไปแล้วกี่ครั้ง)</div>
+    <div id="shiftCloseHistory"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<!-- Adjust Stock Modal -->
+<div class="modal-bg" id="adjustModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeAdjustModal">✕</div>
+    <h3>ปรับปรุงสต็อก</h3>
+    <div class="field">
+      <label>สินค้า</label>
+      <div id="adjustProductName" style="font-weight:700; font-size:15px; padding:6px 0;"></div>
+      <div style="font-size:12px; opacity:.7;">คงเหลือปัจจุบัน: <span id="adjustCurrentStock">0</span></div>
+    </div>
+    <div class="field">
+      <label>ตั้งจำนวนคงเหลือใหม่</label>
+      <input type="number" id="adjustNewStock" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>เหตุผลการปรับ</label>
+      <select id="adjustReason">
+        <option value="นับสต็อกใหม่">นับสต็อกใหม่ (สต็อกจริงไม่ตรง)</option>
+        <option value="สินค้าเสียหาย">สินค้าเสียหาย/หมดอายุ</option>
+        <option value="สินค้าสูญหาย">สินค้าสูญหาย</option>
+        <option value="แก้ไขข้อมูลผิด">แก้ไขข้อมูลที่กรอกผิด</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>หมายเหตุเพิ่มเติม</label>
+      <input type="text" id="adjustNote" placeholder="(ถ้ามี)">
+    </div>
+    <button class="btn-main" id="saveAdjustBtn">บันทึกการปรับสต็อก</button>
+    <div style="height:14px"></div>
+    <div class="label">ประวัติการปรับสต็อก (สินค้านี้)</div>
+    <div id="adjustHistoryList"></div>
+  </div>
+</div>
+
+<!-- Payment Modal (POS Style) -->
+<div class="modal-bg" id="paymentModalBg">
+  <div class="modal">
+    <div class="close-x" id="closePaymentModal">✕</div>
+    <h3>💳 รับชำระเงิน</h3>
+    <div class="pay-total-box">
+      <div class="label">ยอดที่ต้องชำระ</div>
+      <div class="amt" id="payTotalDisplay">0.00</div>
+    </div>
+
+    <div class="row-btns">
+      <div class="btn-flat" id="methodCashBtn" style="flex:1; text-align:center;">💵 เงินสด</div>
+      <div class="btn-flat" id="methodTransferBtn" style="flex:1; text-align:center;">📱 โอนเงิน</div>
+    </div>
+
+    <div id="cashPaymentArea">
+    <div class="pay-display-box">
+      <div class="label" style="opacity:.6; font-size:11px; margin-bottom:2px;">รับเงินมา (บาท)</div>
+      <div class="amt" id="paymentDisplay">0</div>
+    </div>
+    <div class="pay-change-box" id="payChangeBox">
+      <div class="label">เงินทอน</div>
+      <div class="amt" id="paymentChange">0.00</div>
+    </div>
+
+    <div class="quick-cash-grid">
+      <div class="quick-cash-btn" data-bill="20">+20</div>
+      <div class="quick-cash-btn" data-bill="50">+50</div>
+      <div class="quick-cash-btn" data-bill="100">+100</div>
+      <div class="quick-cash-btn" data-bill="500">+500</div>
+      <div class="quick-cash-btn" data-bill="1000">+1000</div>
+      <div class="quick-cash-btn" id="clearBillsBtn">รีเซ็ต</div>
+      <div class="quick-cash-btn exact" id="exactCashBtn">💵 รับเงินพอดี (ไม่ต้องทอน)</div>
+    </div>
+
+    <div class="keypad-grid">
+      <div class="keypad-btn" data-key="1">1</div>
+      <div class="keypad-btn" data-key="2">2</div>
+      <div class="keypad-btn" data-key="3">3</div>
+      <div class="keypad-btn" data-key="4">4</div>
+      <div class="keypad-btn" data-key="5">5</div>
+      <div class="keypad-btn" data-key="6">6</div>
+      <div class="keypad-btn" data-key="7">7</div>
+      <div class="keypad-btn" data-key="8">8</div>
+      <div class="keypad-btn" data-key="9">9</div>
+      <div class="keypad-btn clear" id="clearPayBtn">ล้าง</div>
+      <div class="keypad-btn" data-key="0">0</div>
+      <div class="keypad-btn backspace" id="backspacePayBtn">⌫</div>
+    </div>
+    </div>
+
+    <div id="transferPaymentArea" style="display:none;">
+      <div class="pay-display-box">
+        <div class="label" style="opacity:.6; font-size:11px; margin-bottom:2px;">ยอดที่ต้องโอน</div>
+        <div class="amt" id="transferAmountDisplay">0.00</div>
+      </div>
+      <div style="font-size:12px; color:var(--muted); text-align:center; margin-bottom:12px;">ตรวจสอบสลิป/แจ้งเตือนเงินเข้าให้แน่ใจก่อนกดยืนยัน</div>
+    </div>
+
+    <button class="btn-main" id="confirmPaymentBtn">✅ ยืนยันรับเงิน</button>
+  </div>
+</div>
+
+<!-- Stock Movement History Modal -->
+<div class="modal-bg" id="movementModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeMovementModal">✕</div>
+    <h3 id="movementModalTitle">📜 ประวัติความเคลื่อนไหว</h3>
+    <div id="movementList"></div>
+  </div>
+</div>
+
+<!-- No-Barcode Quick Item Modal -->
+<div class="modal-bg" id="noBarcodeModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeNoBarcodeModal">✕</div>
+    <h3>🏷️ ขายสินค้าไม่มีบาร์โค้ด</h3>
+    <div class="btn-flat btn-green" id="newQuickItemBtn" style="text-align:center; margin-bottom:12px;">+ สร้างรายการใหม่</div>
+    <div class="label">รายการที่เคยสร้างไว้ (แตะเพื่อขาย)</div>
+    <div id="quickItemsList"></div>
+  </div>
+</div>
+
+<!-- Merge Duplicate Products Modal -->
+<div class="modal-bg" id="mergeDupModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeMergeDupModal">✕</div>
+    <h3>🔀 รวมสินค้าซ้ำ</h3>
+    <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">พบชื่อสินค้าซ้ำกัน เลือก "รวมรายการ" เพื่อรวมจำนวนคงเหลือเป็นก้อนเดียว (จะเก็บรายการที่มีสต็อกมากสุดไว้เป็นหลัก ลบรายการซ้ำที่เหลือทิ้ง)</div>
+    <div id="dupGroupsList"></div>
+  </div>
+</div>
+
+<!-- Data Deletion Center Modal -->
+<div class="modal-bg" id="deleteCenterModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeDeleteCenterModal">✕</div>
+    <h3 style="color:#ff8a8a;">🗑️⚠️ ศูนย์จัดการลบข้อมูล</h3>
+    <div style="font-size:12px; opacity:.7; margin-bottom:14px;">เลือกรายการที่ต้องการลบ (เลือกได้หลายรายการ) — ต้องใส่รหัส PIN ระดับสูงสุดยืนยันก่อนดำเนินการ</div>
+
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delSales" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delSales" style="margin:0;"><b>1. ลบข้อมูลยอดขาย</b><br><span style="font-size:11px; opacity:.65;">เพื่อเริ่มร้านใหม่ (ล้างประวัติการขายทั้งหมด)</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delWithdraws" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delWithdraws" style="margin:0;"><b>2. ลบการถอนเงิน</b></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delBills" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delBills" style="margin:0;"><b>3. ลบบิล</b><br><span style="font-size:11px; opacity:.65;">ใช้ข้อมูลชุดเดียวกับยอดขาย เลือกข้อ 1 หรือ 3 ผลลัพธ์เหมือนกัน</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delCost" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delCost" style="margin:0;"><b>4. ลบราคาต้นทุน</b><br><span style="font-size:11px; opacity:.65;">รีเซ็ตราคาทุนของสินค้าทุกชิ้นเป็น 0 (ชื่อ/ราคาขาย/สต็อกไม่หาย)</span></label>
+    </div>
+    <div class="field" style="display:flex; align-items:flex-start; gap:10px;">
+      <input type="checkbox" id="delStock" style="width:20px; height:20px; margin-top:2px;">
+      <label for="delStock" style="margin:0;"><b>5. ลบสต็อกทั้งหมด</b><br><span style="font-size:11px; opacity:.65;">ตั้งจำนวนคงเหลือเป็น 0 ทุกชิ้น แต่ไม่ลบชื่อสินค้า (ไม่ต้องเพิ่มสินค้าใหม่)</span></label>
+    </div>
+
+    <div style="height:6px"></div>
+    <button class="btn-main" id="confirmDeleteCenterBtn" style="background:linear-gradient(135deg,#ff5f6d,#ffc371); color:#3a0d00;">ลบรายการที่เลือก</button>
+  </div>
+</div>
+
+<!-- PIN Confirm Modal -->
+<div class="modal-bg" id="pinModalBg">
+  <div class="modal">
+    <div class="close-x" id="closePinModal">✕</div>
+    <h3 id="pinModalTitle">🔒 ยืนยันรหัสผ่าน</h3>
+    <div class="field">
+      <label id="pinModalDesc">กรุณากรอกรหัส PIN เพื่อดำเนินการต่อ</label>
+      <input type="password" id="pinInput" placeholder="รหัส PIN" inputmode="numeric" maxlength="6" autocomplete="off">
+    </div>
+    <button class="btn-main" id="pinConfirmBtn">ยืนยัน</button>
+  </div>
+</div>
+
+<!-- Store Settings Modal -->
+<div class="modal-bg" id="storeSettingsModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeStoreSettingsModal">✕</div>
+    <h3>⚙️ ตั้งค่าร้าน (แสดงในใบเสร็จ)</h3>
+    <div class="field">
+      <label>ชื่อร้าน</label>
+      <input type="text" id="storeName" placeholder="เช่น ร้านค้าบ้านดุง">
+    </div>
+    <div class="field">
+      <label>ที่อยู่ / ตำบล-อำเภอ</label>
+      <input type="text" id="storeAddress" placeholder="เช่น ต.บ้านดุง อ.บ้านดุง จ.อุดรธานี">
+    </div>
+    <div class="field">
+      <label>เบอร์โทร</label>
+      <input type="text" id="storePhone" placeholder="เช่น 08x-xxx-xxxx">
+    </div>
+    <div class="field">
+      <label>รหัสผ่าน PIN ปกติ (สำหรับปรับสต็อกออก)</label>
+      <input type="password" id="storePin" placeholder="ตั้งรหัส 4-6 หลัก" inputmode="numeric" maxlength="6">
+      <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 1234</div>
+    </div>
+    <div class="field">
+      <label style="color:#ff8a8a;">🔑 รหัสผ่าน PIN ระดับสูงสุด (สำหรับศูนย์ลบข้อมูล)</label>
+      <input type="password" id="storeAdminPin" placeholder="ตั้งรหัส 4-6 หลัก (แนะนำให้ต่างจาก PIN ปกติ)" inputmode="numeric" maxlength="6">
+      <div style="font-size:11px; opacity:.6; margin-top:4px;">ถ้าไม่ตั้ง จะใช้รหัสเริ่มต้น 9999 — ควรตั้งใหม่และเก็บเป็นความลับ</div>
+    </div>
+    <button class="btn-main" id="saveStoreSettingsBtn">บันทึกการตั้งค่า</button>
+
+    <div class="r-line" style="border-color:rgba(255,255,255,.15); margin:20px 0;"></div>
+    <div class="label" style="margin-bottom:8px;">👥 จัดการพนักงานขาย</div>
+    <div id="staffList" style="margin-bottom:10px;"></div>
+    <div class="field">
+      <label>ชื่อพนักงานใหม่</label>
+      <input type="text" id="newStaffName" placeholder="เช่น น้อง A">
+    </div>
+    <div class="field">
+      <label>รหัส PIN ประจำตัว (4 หลัก)</label>
+      <input type="password" id="newStaffPin" placeholder="0000" inputmode="numeric" maxlength="4">
+    </div>
+    <div class="btn-flat btn-green" id="addStaffBtn" style="text-align:center;">+ เพิ่มพนักงาน</div>
+  </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal-bg" id="receiptModalBg">
+  <div class="modal">
+    <div class="close-x" id="closeReceiptModal">✕</div>
+    <div id="receiptPrintArea">
+      <div class="receipt-box" id="receiptContent"></div>
+    </div>
+    <div style="height:12px"></div>
+    <div class="row-btns">
+      <div class="btn-flat btn-green" id="printReceiptBtn" style="flex:1; text-align:center;">🖨️ พิมพ์ / บันทึกเป็น PDF</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const K_PRODUCTS = 'pos_products_v1';
+const K_SALES = 'pos_sales_v1';
+const K_PURCHASES = 'pos_purchases_v1';
+const K_WITHDRAWS = 'pos_withdraws_v1';
+const K_ADJUSTMENTS = 'pos_adjustments_v1';
+const K_STORE_SETTINGS = 'pos_store_settings_v1';
+const K_LAST_BACKUP = 'pos_last_backup_ts';
+const K_PIN = 'pos_security_pin';
+const K_ADMIN_PIN = 'pos_admin_pin';
+const K_STAFF = 'pos_staff_v1';
+const K_CASH_DRAWER = 'pos_cash_drawer_v1';
+const K_SHIFT_CLOSES = 'pos_shift_closes_v1';
+const K_QUICK_ITEMS = 'pos_quick_items_v1';
+const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+let products = load(K_PRODUCTS);
+let sales = load(K_SALES);
+let purchases = load(K_PURCHASES);
+let withdraws = load(K_WITHDRAWS);
+let adjustments = load(K_ADJUSTMENTS);
+let staffList = load(K_STAFF);
+let cashDrawer = load(K_CASH_DRAWER);
+let shiftCloses = load(K_SHIFT_CLOSES);
+let quickItems = load(K_QUICK_ITEMS);
+let currentCashier = null; // ล็อกอินใหม่ทุกครั้งที่เปิดแอป (ไม่จำข้ามเซสชัน เพื่อความปลอดภัย)
+let storeSettings = (function(){
+  try{
+    const r = localStorage.getItem(K_STORE_SETTINGS);
+    return r ? JSON.parse(r) : { name:'ร้านค้าของฉัน', address:'', phone:'' };
+  }catch(e){ return { name:'ร้านค้าของฉัน', address:'', phone:'' }; }
+})();
+let cart = [];
+let editProductId = null;
+
+function load(key){ try{ const r = localStorage.getItem(key); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+function saveAll(){
+  localStorage.setItem(K_PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(K_SALES, JSON.stringify(sales));
+  localStorage.setItem(K_PURCHASES, JSON.stringify(purchases));
+  localStorage.setItem(K_WITHDRAWS, JSON.stringify(withdraws));
+  localStorage.setItem(K_ADJUSTMENTS, JSON.stringify(adjustments));
+  localStorage.setItem(K_STAFF, JSON.stringify(staffList));
+  localStorage.setItem(K_CASH_DRAWER, JSON.stringify(cashDrawer));
+  localStorage.setItem(K_SHIFT_CLOSES, JSON.stringify(shiftCloses));
+  localStorage.setItem(K_QUICK_ITEMS, JSON.stringify(quickItems));
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fmt(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function toBE(y){ return y+543; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------- ระบบนำทางแบบเมนู (กดเข้าหมวด -> เต็มจอ -> ย้อนกลับด้วยปุ่ม/ปุ่มมือถือเท่านั้น) ----------
+const PAGE_INFO = {
+  home:   { title:'🏪 ระบบร้านค้า', sub:'สต็อก · สแกนขาย · นำเข้า · สรุปกำไร' },
+  scan:   { title:'📷 ขายสินค้า', sub:'สแกนบาร์โค้ด/QR หรือเลือกสินค้าเพื่อขาย' },
+  stock:  { title:'📦 สต็อก', sub:'จัดการสินค้าและจำนวนคงเหลือ' },
+  import: { title:'🚚 นำเข้าสินค้า', sub:'รับสินค้าเข้าสต็อก' },
+  bills:  { title:'🧾 บิลย้อนหลัง', sub:'ประวัติการขายทั้งหมด' },
+  report: { title:'📊 รายงาน', sub:'สรุปยอดขาย กำไร และสต็อก' }
+};
+function showPage(pageKey){
+  if(!PAGE_INFO[pageKey]) pageKey = 'home';
+  stopAllScanners();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+pageKey).classList.add('active');
+  document.getElementById('headerBackBtn').style.display = pageKey==='home' ? 'none' : 'flex';
+  document.getElementById('headerTitle').textContent = PAGE_INFO[pageKey].title;
+  document.getElementById('headerSub').textContent = PAGE_INFO[pageKey].sub;
+  window.scrollTo(0,0);
+  renderAll();
+}
+function navigateToPage(pageKey){
+  history.pushState({ page: pageKey }, '', '#'+pageKey);
+  showPage(pageKey);
+}
+window.addEventListener('popstate', (e)=>{
+  const pageKey = (e.state && e.state.page) || 'home';
+  showPage(pageKey);
+});
+document.getElementById('headerBackBtn').addEventListener('click', ()=>{
+  history.back();
+});
+document.querySelectorAll('.menu-tile').forEach(tile=>{
+  tile.addEventListener('click', ()=> navigateToPage(tile.dataset.nav));
+});
+
+// ================= PRODUCTS =================
+function findProductByBarcode(code){
+  return products.find(p=>p.barcode && p.barcode === code);
+}
+function refreshProductSelects(){
+  const opts = '<option value="">-- เลือกสินค้า --</option>' + products.map(p=>
+    `<option value="${p.id}">${escapeHtml(p.name)} (คงเหลือ ${p.stock})</option>`).join('');
+  document.getElementById('manualProductSelect').innerHTML = opts;
+  document.getElementById('importProductSelect').innerHTML = opts;
+}
+
+function setCategorySelectValue(catValue){
+  const sel = document.getElementById('pCategory');
+  const customInput = document.getElementById('pCategoryCustom');
+  const existingOption = Array.from(sel.options).find(o=>o.value===catValue);
+  if(catValue && !existingOption){
+    // เป็นหมวดหมู่ที่เคยพิมพ์เองมาก่อน ให้เพิ่มเป็นตัวเลือกไว้ก่อน __custom__
+    const opt = document.createElement('option');
+    opt.value = catValue; opt.textContent = catValue;
+    sel.insertBefore(opt, sel.querySelector('option[value="__custom__"]'));
+  }
+  sel.value = catValue || 'เครื่องดื่ม';
+  customInput.style.display = 'none';
+  customInput.value = '';
+}
+document.getElementById('pCategory').addEventListener('change', function(){
+  const customInput = document.getElementById('pCategoryCustom');
+  if(this.value === '__custom__'){
+    customInput.style.display = 'block';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+  }
+});
+
+function openProductModal(product, prefillBarcode){
+  editProductId = product ? product.id : null;
+  document.getElementById('productModalTitle').textContent = product ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่';
+  document.getElementById('pBarcode').value = product ? (product.barcode||'') : (prefillBarcode||'');
+  document.getElementById('pName').value = product ? product.name : '';
+  setCategorySelectValue(product ? (product.category||'') : '');
+  document.getElementById('pCost').value = product ? product.cost : '';
+  document.getElementById('pPrice').value = product ? product.price : '';
+  document.getElementById('pStock').value = product ? product.stock : 0;
+  document.getElementById('pLowStock').value = product ? (product.lowStock ?? 5) : 5;
+  const statusEl = document.getElementById('lookupStatus');
+  statusEl.style.display = 'none';
+  statusEl.textContent = '';
+  document.getElementById('productModalBg').classList.add('show');
+}
+document.getElementById('closeProductModal').addEventListener('click', ()=>{
+  stopScanner('product');
+  document.getElementById('productModalBg').classList.remove('show');
+});
+document.getElementById('addProductBtn').addEventListener('click', ()=>openProductModal(null));
+document.getElementById('quickAddProduct').addEventListener('click', ()=>openProductModal(null));
+
+document.getElementById('saveProductBtn').addEventListener('click', ()=>{
+  const barcode = document.getElementById('pBarcode').value.trim();
+  const name = document.getElementById('pName').value.trim();
+  let category = document.getElementById('pCategory').value;
+  if(category === '__custom__'){
+    category = document.getElementById('pCategoryCustom').value.trim();
+  }
+  const cost = parseFloat(document.getElementById('pCost').value)||0;
+  const price = parseFloat(document.getElementById('pPrice').value)||0;
+  const stock = parseInt(document.getElementById('pStock').value)||0;
+  const lowStock = parseInt(document.getElementById('pLowStock').value)||5;
+  if(!name){ toast('กรุณาใส่ชื่อสินค้า'); return; }
+
+  // กันเพิ่มสินค้าซ้ำ: ถ้าเจอสินค้าเดิม (บาร์โค้ดหรือชื่อตรงกัน) แค่ถามจำนวนที่จะเพิ่มเข้าไป ไม่ต้องกรอกฟอร์มใหม่ทั้งหมด
+  if(!editProductId){
+    const dup = (barcode && products.find(p=>p.barcode && p.barcode===barcode))
+      || products.find(p=>normalizeName(p.name)===normalizeName(name));
+    if(dup){
+      const addQtyStr = prompt(`สินค้านี้มีอยู่แล้ว: "${dup.name}" (คงเหลือตอนนี้ ${dup.stock})\n\nใส่จำนวนที่ต้องการเพิ่มเข้าไป (ใส่ 0 หรือกด Cancel เพื่อยกเลิก):`, '0');
+      const addQty = parseInt(addQtyStr);
+      if(addQty && addQty>0){
+        dup.stock += addQty;
+        if(cost>0) dup.cost = cost;
+        if(price>0) dup.price = price;
+        saveAll();
+        document.getElementById('productModalBg').classList.remove('show');
+        toast(`เพิ่มจำนวน ${addQty} เข้า "${dup.name}" แล้ว (คงเหลือ ${dup.stock})`);
+        renderAll();
+      } else {
+        toast('ยกเลิกแล้ว (ไม่ได้สร้างสินค้าซ้ำ)');
+      }
+      return;
+    }
+  }
+
+  if(editProductId){
+    const idx = products.findIndex(p=>p.id===editProductId);
+    if(idx>-1) products[idx] = {...products[idx], barcode, name, category, cost, price, stock, lowStock};
+  } else {
+    products.push({id:uid(), barcode, name, category, cost, price, stock, lowStock});
+  }
+  saveAll();
+  stopScanner('product');
+  document.getElementById('productModalBg').classList.remove('show');
+  toast('บันทึกสินค้าเรียบร้อย ✅');
+  renderAll();
+});
+
+function deleteProduct(id){
+  if(!confirm('ลบสินค้านี้ใช่หรือไม่?')) return;
+  products = products.filter(p=>p.id!==id);
+  saveAll(); renderAll(); toast('ลบสินค้าแล้ว');
+}
+
+document.getElementById('stockSearch').addEventListener('input', renderStockList);
+
+// ================= ตรวจจับและรวมสินค้าซ้ำ =================
+function normalizeName(name){
+  return (name||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+function findDuplicateGroups(){
+  const groups = {};
+  products.forEach(p=>{
+    const key = normalizeName(p.name);
+    if(!key) return;
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  });
+  return Object.values(groups).filter(g=>g.length>1);
+}
+function checkDupWarning(){
+  const el = document.getElementById('dupWarningBanner');
+  const groups = findDuplicateGroups();
+  if(!groups.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  document.getElementById('dupWarningTitle').textContent = `⚠️ พบสินค้าซ้ำ ${groups.length} รายการ`;
+}
+document.getElementById('dupWarningBanner').addEventListener('click', openMergeDupModal);
+function openMergeDupModal(){
+  renderDupGroups();
+  document.getElementById('mergeDupModalBg').classList.add('show');
+}
+document.getElementById('closeMergeDupModal').addEventListener('click', ()=>{
+  document.getElementById('mergeDupModalBg').classList.remove('show');
+});
+function renderDupGroups(){
+  const groups = findDuplicateGroups();
+  const el = document.getElementById('dupGroupsList');
+  if(!groups.length){ el.innerHTML = '<div class="empty">ไม่พบสินค้าซ้ำแล้ว 🎉</div>'; return; }
+  el.innerHTML = groups.map((g,gi)=>{
+    const totalStock = g.reduce((a,p)=>a+p.stock,0);
+    const rows = g.map(p=>`<div class="prod-meta">- ${escapeHtml(p.name)} (คงเหลือ ${p.stock}, ทุน ${fmt(p.cost)}, ขาย ${fmt(p.price)})</div>`).join('');
+    return `<div class="card" style="margin-bottom:10px;">
+      <div class="prod-name" style="margin-bottom:4px;">${escapeHtml(g[0].name)} — ซ้ำ ${g.length} รายการ</div>
+      ${rows}
+      <div class="prod-meta" style="margin:6px 0;">รวมกันจะได้คงเหลือ: <b>${totalStock}</b></div>
+      <div class="btn-flat btn-green" data-merge="${gi}" style="text-align:center;">🔀 รวมรายการนี้</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-merge]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const g = groups[parseInt(btn.dataset.merge)];
+      mergeDuplicateGroup(g);
+    });
+  });
+}
+function mergeDuplicateGroup(group){
+  if(!confirm(`รวม "${group[0].name}" ทั้ง ${group.length} รายการเป็นรายการเดียว ใช่หรือไม่?`)) return;
+  // เก็บรายการที่มีสต็อกมากสุดไว้เป็นหลัก รวมสต็อกจากรายการอื่นเข้าไป แล้วลบรายการซ้ำทิ้ง
+  const sorted = [...group].sort((a,b)=>b.stock-a.stock);
+  const keep = sorted[0];
+  const totalStock = group.reduce((a,p)=>a+p.stock,0);
+  const removeIds = sorted.slice(1).map(p=>p.id);
+  const keepIdx = products.findIndex(p=>p.id===keep.id);
+  if(keepIdx>-1) products[keepIdx].stock = totalStock;
+  products = products.filter(p=>!removeIds.includes(p.id));
+  saveAll();
+  renderDupGroups();
+  renderAll();
+  toast(`รวมสินค้าเรียบร้อยแล้ว (คงเหลือรวม ${totalStock})`);
+}
+
+function renderStockList(){
+  checkDupWarning();
+  const q = document.getElementById('stockSearch').value.trim().toLowerCase();
+  const list = products.filter(p=> !q || p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q));
+  const el = document.getElementById('productList');
+  if(!list.length){ el.innerHTML = '<div class="empty">ยังไม่มีสินค้า</div>'; return; }
+  el.innerHTML = list.map(p=>{
+    const margin = p.price>0 ? (((p.price-p.cost)/p.price)*100).toFixed(1) : '0';
+    const low = p.stock <= (p.lowStock ?? 5);
+    return `<div class="prod-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(p.name)}</div>
+        <div class="prod-meta">ทุน ${fmt(p.cost)} · ขาย ${fmt(p.price)} · กำไร ${margin}%</div>
+        <div class="prod-stock ${low?'low':''}">คงเหลือ: ${p.stock} ${low?'⚠️ ใกล้หมด':''}</div>
+      </div>
+      <div class="prod-actions">
+        <button class="icon-btn" data-adjust="${p.id}">🔧</button>
+        <button class="icon-btn" data-edit="${p.id}">✏️</button>
+        <button class="icon-btn" data-del="${p.id}">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-adjust]').forEach(b=>b.addEventListener('click', ()=>{
+    const p = products.find(x=>x.id===b.dataset.adjust); if(p) openAdjustModal(p);
+  }));
+  el.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const p = products.find(x=>x.id===b.dataset.edit); if(p) openProductModal(p);
+  }));
+  el.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>deleteProduct(b.dataset.del)));
+}
+
+// ================= SCANNER (shared logic) =================
+let scannerState = { scan:false, importP:false, product:false };
+let scanCooldownUntil = { scan:0, importP:0, product:0 };
+const qrIntervals = {};
+const qrLastSeen = {};
+
+let sharedAudioCtx = null;
+function playBeep(){
+  try{
+    if(!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+    const osc = sharedAudioCtx.createOscillator();
+    const gain = sharedAudioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1600;
+    gain.gain.setValueAtTime(0.001, sharedAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, sharedAudioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(sharedAudioCtx.destination);
+    osc.start();
+    osc.stop(sharedAudioCtx.currentTime + 0.16);
+    if(navigator.vibrate) navigator.vibrate(80);
+  }catch(e){ /* audio not supported, ignore */ }
+}
+let videoDevices = [];
+let currentDeviceIndex = 0;
+const CAM_PREF_KEY = 'pos_preferred_camera_id';
+
+async function refreshVideoDevices(){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    videoDevices = devices.filter(d=>d.kind==='videoinput');
+    const savedId = localStorage.getItem(CAM_PREF_KEY);
+    if(savedId){
+      const idx = videoDevices.findIndex(d=>d.deviceId===savedId);
+      if(idx>-1) currentDeviceIndex = idx;
+    }
+  }catch(e){ videoDevices = []; }
+}
+
+function getCameraConstraints(){
+  const savedId = localStorage.getItem(CAM_PREF_KEY);
+  if(savedId){
+    // ใช้ ideal แทน exact เพราะ deviceId ของกล้องอาจเปลี่ยนได้ทุกครั้งที่โหลดหน้าใหม่
+    // ถ้าบังคับ exact แล้วไอดีเก่าไม่ตรง กล้องจะเปิดไม่ได้เลยทันที
+    return { deviceId:{ ideal: savedId }, facingMode:{ ideal:"environment" }, width:{ideal:1280}, height:{ideal:720}, advanced:[{focusMode:"continuous"}] };
+  }
+  return { facingMode:"environment", width:{ideal:1280}, height:{ideal:720}, advanced:[{focusMode:"continuous"}] };
+}
+
+const nativeSupported = ('BarcodeDetector' in window);
+let nativeDetector = null;
+if(nativeSupported){
+  try{
+    nativeDetector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','upc_a','upc_e','qr_code'] });
+  }catch(e){ nativeDetector = null; }
+}
+const detectorIntervals = {};
+const activeStreams = {};
+const scannerMode = {}; // 'native' หรือ 'quagga' ต่อ kind
+
+function startScanner(kind){
+  let viewportId;
+  if(kind==='scan'){ viewportId='scannerViewport'; }
+  else if(kind==='importP'){ viewportId='scannerViewportImport'; }
+  else if(kind==='product'){ viewportId='scannerViewportProduct'; }
+  const viewport = document.getElementById(viewportId);
+  viewport.style.display='block';
+  viewport.innerHTML='';
+  viewport.style.position='relative';
+
+  if(nativeDetector){
+    scannerMode[kind] = 'native';
+    startNativeScanner(kind, viewport);
+  } else {
+    scannerMode[kind] = 'quagga';
+    startQuaggaScanner(kind, viewport);
+  }
+}
+
+function addScanOverlay(viewport){
+  const guide = document.createElement('div');
+  guide.style.cssText = 'position:absolute; top:15%; bottom:15%; left:5%; right:5%; border:2px dashed #38ef7d; border-radius:8px; pointer-events:none; z-index:5;';
+  viewport.appendChild(guide);
+  const scanLine = document.createElement('div');
+  scanLine.className = 'scan-line';
+  viewport.appendChild(scanLine);
+}
+
+// ---------- โหมดหลัก: ใช้ BarcodeDetector ของเบราว์เซอร์ (แม่นยำกว่า ใช้ AI ในเครื่องเหมือน ML Kit) ----------
+async function startNativeScanner(kind, viewport){
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: getCameraConstraints(), audio:false });
+  }catch(err){
+    console.warn('เปิดกล้องด้วยค่าที่ตั้งไว้ไม่สำเร็จ ลองใหม่ด้วยค่าพื้นฐาน', err.name, err.message);
+    // ถ้าใช้ค่าที่บันทึกไว้ไม่สำเร็จ (เช่น deviceId เก่าใช้ไม่ได้แล้ว) ล้างค่าที่บันทึกไว้แล้วลองใหม่แบบพื้นฐาน
+    localStorage.removeItem(CAM_PREF_KEY);
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" }, audio:false });
+    }catch(err2){
+      console.error('Native scanner error', err2);
+      const reason = err2.name === 'NotAllowedError' ? 'ไม่ได้รับสิทธิ์กล้อง กรุณาอนุญาตกล้องในตั้งค่าเบราว์เซอร์'
+        : err2.name === 'NotFoundError' ? 'ไม่พบกล้องในเครื่อง'
+        : err2.name === 'NotReadableError' ? 'กล้องถูกใช้งานโดยแอปอื่นอยู่ ปิดแอปอื่นที่ใช้กล้องแล้วลองใหม่'
+        : (err2.message || err2.name || 'ไม่ทราบสาเหตุ');
+      toast('ไม่สามารถเปิดกล้องได้: ' + reason);
+      viewport.style.display='none';
+      return;
+    }
+  }
+  try{
+    activeStreams[kind] = stream;
+    const video = document.createElement('video');
+    video.setAttribute('playsinline','');
+    video.muted = true;
+    video.autoplay = true;
+    video.srcObject = stream;
+    viewport.appendChild(video);
+    await video.play();
+    scannerState[kind] = true;
+    addScanOverlay(viewport);
+    refreshVideoDevices().then(()=>{
+      if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+      if(kind==='importP') document.getElementById('switchCamImportBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+    });
+
+    let lastCode=null, lastTime=0;
+    detectorIntervals[kind] = setInterval(async ()=>{
+      if(!scannerState[kind]) return;
+      if(Date.now() < scanCooldownUntil[kind]) return;
+      if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
+      try{
+        const results = await nativeDetector.detect(video);
+        if(results && results.length){
+          const raw = (results[0].rawValue || '').trim();
+          if(!raw) return;
+          const now = Date.now();
+          if(raw===lastCode && now-lastTime<1500) return;
+          lastCode = raw; lastTime = now;
+          playBeep();
+          handleScanResult(kind, raw);
+        }
+      }catch(e){ /* เฟรมนี้อ่านไม่ได้ ข้ามไปเฟรมถัดไป */ }
+    }, 220);
+  }catch(err){
+    console.error('Native scanner error', err);
+    toast('ไม่สามารถเปิดกล้องได้: ' + (err.message || err.name || 'ลองใหม่อีกครั้ง'));
+    viewport.style.display='none';
+  }
+}
+
+// ---------- โหมดสำรอง: Quagga + jsQR (ใช้เมื่อเบราว์เซอร์ไม่รองรับ BarcodeDetector) ----------
+function startQuaggaScanner(kind, viewport, isRetry){
+  Quagga.init({
+    inputStream: {
+      type:"LiveStream",
+      target: viewport,
+      constraints: isRetry ? { facingMode:"environment" } : getCameraConstraints()
+    },
+    locator: { patchSize:"medium", halfSample:false },
+    numOfWorkers: 0,
+    frequency: 10,
+    decoder: { readers:["ean_reader"], multiple:false },
+    locate:true
+  }, function(err){
+    if(err){
+      if(!isRetry){
+        // ค่าที่บันทึกไว้อาจใช้ไม่ได้แล้ว (เช่น deviceId เก่า) ล้างแล้วลองใหม่ด้วยค่าพื้นฐาน
+        localStorage.removeItem(CAM_PREF_KEY);
+        startQuaggaScanner(kind, viewport, true);
+        return;
+      }
+      console.error('Quagga init error', err);
+      const reason = err.name === 'NotAllowedError' ? 'ไม่ได้รับสิทธิ์กล้อง กรุณาอนุญาตกล้องในตั้งค่าเบราว์เซอร์'
+        : err.name === 'NotFoundError' ? 'ไม่พบกล้องในเครื่อง'
+        : err.name === 'NotReadableError' ? 'กล้องถูกใช้งานโดยแอปอื่นอยู่'
+        : (err.message || err.name || 'ไม่ทราบสาเหตุ');
+      toast('ไม่สามารถเปิดกล้องได้: ' + reason);
+      viewport.style.display='none';
+      return;
+    }
+    Quagga.start();
+    scannerState[kind] = true;
+    addScanOverlay(viewport);
+    startQrLoop(kind, viewport);
+    refreshVideoDevices().then(()=>{
+      if(kind==='scan') document.getElementById('switchCamBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+      if(kind==='importP') document.getElementById('switchCamImportBtn').style.display = videoDevices.length>1 ? 'block' : 'none';
+    });
+  });
+
+  let confirmCode=null, confirmCount=0, lastAccepted=null, lastAcceptedTime=0;
+  Quagga.onDetected(function(data){
+    if(!scannerState[kind]) return;
+    if(Date.now() < scanCooldownUntil[kind]) return;
+    const code = data.codeResult.code;
+    if(!/^\d{13}$/.test(code)) return; // รับเฉพาะบาร์โค้ดมาตรฐานสากล EAN-13 (13 หลัก) เท่านั้น
+    const now = Date.now();
+    if(code === confirmCode){
+      confirmCount++;
+    } else {
+      confirmCode = code;
+      confirmCount = 1;
+    }
+    if(confirmCount < 2) return; // ต้องอ่านได้ค่าเดิมซ้ำก่อนถึงยอมรับ ลดการอ่านเพี้ยน
+    if(code === lastAccepted && now - lastAcceptedTime < 1500) return;
+    lastAccepted = code;
+    lastAcceptedTime = now;
+    confirmCode = null; confirmCount = 0;
+    playBeep();
+    handleScanResult(kind, code);
+  });
+}
+function startQrLoop(kind, viewport){
+  if(typeof jsQR === 'undefined') return;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  qrLastSeen[kind] = { code:null, time:0 };
+  qrIntervals[kind] = setInterval(()=>{
+    if(!scannerState[kind]) return;
+    if(Date.now() < scanCooldownUntil[kind]) return;
+    const video = viewport.querySelector('video');
+    if(!video || video.readyState !== video.HAVE_ENOUGH_DATA || !video.videoWidth) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    let imageData;
+    try{ imageData = ctx.getImageData(0,0,canvas.width, canvas.height); } catch(e){ return; }
+    const result = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts:"dontInvert" });
+    if(result && result.data){
+      const code = result.data.trim();
+      const now = Date.now();
+      const last = qrLastSeen[kind];
+      if(code===last.code && now-last.time<1500) return;
+      qrLastSeen[kind] = { code, time: now };
+      playBeep();
+      handleScanResult(kind, code);
+    }
+  }, 350);
+}
+function stopQrLoop(kind){
+  if(qrIntervals[kind]){ clearInterval(qrIntervals[kind]); delete qrIntervals[kind]; }
+}
+function stopNativeScanner(kind){
+  if(detectorIntervals[kind]){ clearInterval(detectorIntervals[kind]); delete detectorIntervals[kind]; }
+  if(activeStreams[kind]){
+    activeStreams[kind].getTracks().forEach(t=>t.stop());
+    delete activeStreams[kind];
+  }
+}
+function stopScanner(kind){
+  if(!scannerState[kind]) {
+    const map={scan:'scannerViewport',importP:'scannerViewportImport',product:'scannerViewportProduct'};
+    const v = document.getElementById(map[kind]);
+    if(v) v.style.display='none';
+    return;
+  }
+  if(scannerMode[kind] === 'native'){
+    stopNativeScanner(kind);
+  } else {
+    stopQrLoop(kind);
+    try{ Quagga.stop(); }catch(e){}
+  }
+  scannerState[kind] = false;
+  const map={scan:'scannerViewport',importP:'scannerViewportImport',product:'scannerViewportProduct'};
+  document.getElementById(map[kind]).style.display='none';
+}
+function stopAllScanners(){
+  ['scan','importP','product'].forEach(k=>{ if(scannerState[k]) stopScanner(k); });
+  document.getElementById('startScanBtn').style.display='inline-block';
+  document.getElementById('stopScanBtn').style.display='none';
+  document.getElementById('switchCamBtn').style.display='none';
+  document.getElementById('startScanImportBtn').style.display='inline-block';
+  document.getElementById('stopScanImportBtn').style.display='none';
+  document.getElementById('switchCamImportBtn').style.display='none';
+}
+
+function handleScanResult(kind, code){
+  scanCooldownUntil[kind] = Date.now() + 2000; // หยุดรับสแกนใหม่ชั่วคราว กันนับซ้ำถ้าถือมือถือนิ่งจ่อบาร์โค้ดเดิม
+  const product = findProductByBarcode(code);
+  if(kind==='scan'){
+    if(product){ addToCart(product); toast(`เพิ่ม: ${product.name}`); }
+    else {
+      toast('ไม่พบสินค้านี้ กำลังเปิดหน้าเพิ่มสินค้าใหม่...');
+      stopScanner('scan');
+      document.getElementById('startScanBtn').style.display='inline-block';
+      document.getElementById('stopScanBtn').style.display='none';
+      openProductModal(null, code);
+      autoLookupAndFill(code);
+    }
+  } else if(kind==='importP'){
+    if(product){
+      document.getElementById('importProductSelect').value = product.id;
+      document.getElementById('importCost').value = product.cost;
+      toast(`เลือก: ${product.name}`);
+    } else {
+      toast('ไม่พบสินค้า กรุณาเพิ่มสินค้าใหม่ก่อน');
+    }
+  } else if(kind==='product'){
+    document.getElementById('pBarcode').value = code;
+    stopScanner('product');
+    toast('สแกนบาร์โค้ดสำเร็จ');
+    autoLookupAndFill(code);
+  }
+}
+
+// ================= ปืนยิงบาร์โค้ด (Keyboard Wedge - Bluetooth/USB HID) =================
+// ปืนยิงส่วนใหญ่ทำตัวเป็นคีย์บอร์ด พิมพ์ตัวเลขเร็วมากแล้วกด Enter ปิดท้ายอัตโนมัติ
+// เราดักจับจังหวะพิมพ์ที่เร็วผิดปกติ (ไม่ใช่คนพิมพ์เอง) มาตีความเป็นบาร์โค้ดที่สแกนได้
+let kbWedgeBuffer = '';
+let kbWedgeLastTime = 0;
+const KB_WEDGE_MAX_GAP = 60; // มิลลิวินาที ระหว่างตัวอักษร ถ้าห่างกว่านี้ถือว่าเป็นการพิมพ์ของคน ไม่ใช่ปืนยิง
+document.addEventListener('keydown', function(e){
+  const now = Date.now();
+  const gap = now - kbWedgeLastTime;
+  kbWedgeLastTime = now;
+
+  if(e.key === 'Enter'){
+    if(kbWedgeBuffer.length >= 4){
+      const scanned = kbWedgeBuffer;
+      kbWedgeBuffer = '';
+      handleKeyboardWedgeScan(scanned);
+    } else {
+      kbWedgeBuffer = '';
+    }
+    return;
+  }
+  if(e.key.length === 1){
+    if(gap > KB_WEDGE_MAX_GAP){
+      kbWedgeBuffer = e.key; // เริ่มนับใหม่ (จังหวะไม่เร็วพอ น่าจะเป็นคนพิมพ์)
+    } else {
+      kbWedgeBuffer += e.key;
+    }
+  }
+});
+
+function handleKeyboardWedgeScan(code){
+  const activePage = document.querySelector('.page.active');
+  const activePageId = activePage ? activePage.id : '';
+
+  if(document.getElementById('productModalBg').classList.contains('show')){
+    document.getElementById('pBarcode').value = code;
+    playBeep();
+    toast('รับบาร์โค้ดจากปืนยิงแล้ว');
+    autoLookupAndFill(code);
+    return;
+  }
+  if(activePageId === 'page-scan'){
+    playBeep();
+    handleScanResult('scan', code);
+    return;
+  }
+  if(activePageId === 'page-import'){
+    playBeep();
+    handleScanResult('importP', code);
+    return;
+  }
+  if(activePageId === 'page-stock'){
+    playBeep();
+    document.getElementById('stockSearch').value = code;
+    renderStockList();
+  }
+}
+
+
+async function lookupBarcode(code){
+  // 1) Open Food Facts - ฐานข้อมูลสินค้าอุปโภคบริโภค/อาหาร ฟรีไม่ต้องใช้ key
+  try{
+    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+    const d = await res.json();
+    if(d && d.status===1 && d.product){
+      const name = d.product.product_name_th || d.product.product_name || d.product.generic_name_th || d.product.generic_name || '';
+      const brand = d.product.brands || '';
+      let category = '';
+      if(d.product.categories_tags && d.product.categories_tags.length){
+        category = d.product.categories_tags[d.product.categories_tags.length-1].replace(/^\w+:/,'').replace(/-/g,' ');
+      }
+      if(name){
+        return { name: brand && !name.toLowerCase().includes(brand.toLowerCase()) ? `${name} (${brand})` : name, category, source:'Open Food Facts' };
+      }
+    }
+  }catch(e){ /* ignore, try next source */ }
+
+  // 2) UPCItemDB (trial, ไม่ต้องใช้ key แต่จำกัดจำนวนครั้ง/วัน) - เผื่อสินค้าไม่ใช่อาหาร
+  try{
+    const res2 = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`);
+    const d2 = await res2.json();
+    if(d2 && d2.items && d2.items.length){
+      const item = d2.items[0];
+      const name = item.title || '';
+      const brand = item.brand || '';
+      const category = item.category || '';
+      if(name){
+        return { name: brand && !name.toLowerCase().includes(brand.toLowerCase()) ? `${name} (${brand})` : name, category, source:'UPCitemdb' };
+      }
+    }
+  }catch(e){ /* ignore */ }
+
+  return null;
+}
+
+async function autoLookupAndFill(code){
+  if(!code || code.length < 4){ return; }
+  const statusEl = document.getElementById('lookupStatus');
+  statusEl.style.display = 'block';
+  statusEl.textContent = '🔎 กำลังค้นหาข้อมูลสินค้าจากเลข ' + code + ' ...';
+  toast('กำลังค้นหาข้อมูลสินค้าออนไลน์...');
+  const info = await lookupBarcode(code);
+  if(info && info.name){
+    document.getElementById('pName').value = info.name;
+    if(info.category) setCategorySelectValue(info.category);
+    statusEl.textContent = `✅ พบข้อมูล (${info.source}): ${info.name}`;
+    toast('พบข้อมูลสินค้า: ' + info.name);
+  } else {
+    statusEl.textContent = '⚠️ ไม่พบข้อมูลอัตโนมัติ กรุณากรอกชื่อสินค้าเอง';
+    toast('ไม่พบข้อมูลอัตโนมัติ กรุณากรอกชื่อเอง');
+  }
+}
+
+document.getElementById('lookupBarcodeBtn').addEventListener('click', ()=>{
+  const code = document.getElementById('pBarcode').value.trim();
+  if(!code){ toast('กรุณาสแกนหรือพิมพ์เลขบาร์โค้ดก่อน'); return; }
+  autoLookupAndFill(code);
+});
+
+document.getElementById('startScanBtn').addEventListener('click', ()=>{
+  startScanner('scan');
+  document.getElementById('startScanBtn').style.display='none';
+  document.getElementById('stopScanBtn').style.display='inline-block';
+  document.getElementById('scanHint').textContent = 'กำลังสแกน... เล็งกล้องไปที่บาร์โค้ด';
+});
+document.getElementById('stopScanBtn').addEventListener('click', ()=>{
+  stopScanner('scan');
+  document.getElementById('startScanBtn').style.display='inline-block';
+  document.getElementById('stopScanBtn').style.display='none';
+  document.getElementById('switchCamBtn').style.display='none';
+  document.getElementById('scanHint').textContent = 'กดเปิดกล้องเพื่อสแกนบาร์โค้ดสินค้า';
+});
+document.getElementById('startScanImportBtn').addEventListener('click', ()=>{
+  startScanner('importP');
+  document.getElementById('startScanImportBtn').style.display='none';
+  document.getElementById('stopScanImportBtn').style.display='inline-block';
+});
+document.getElementById('stopScanImportBtn').addEventListener('click', ()=>{
+  stopScanner('importP');
+  document.getElementById('startScanImportBtn').style.display='inline-block';
+  document.getElementById('stopScanImportBtn').style.display='none';
+  document.getElementById('switchCamImportBtn').style.display='none';
+});
+document.getElementById('scanForProductBtn').addEventListener('click', ()=>{
+  startScanner('product');
+});
+
+async function switchCamera(kind){
+  if(!videoDevices.length){ await refreshVideoDevices(); }
+  if(videoDevices.length < 2){ toast('พบกล้องแค่ตัวเดียว'); return; }
+  currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+  const chosen = videoDevices[currentDeviceIndex];
+  localStorage.setItem(CAM_PREF_KEY, chosen.deviceId);
+  toast('สลับกล้อง: ' + (chosen.label || 'กล้อง ' + (currentDeviceIndex+1)));
+  stopScanner(kind);
+  startScanner(kind);
+}
+document.getElementById('switchCamBtn').addEventListener('click', ()=>switchCamera('scan'));
+document.getElementById('switchCamImportBtn').addEventListener('click', ()=>switchCamera('importP'));
+
+// ================= CART / SALE =================
+function addToCart(product, qty){
+  qty = qty || 1;
+  const existing = cart.find(c=>c.pid===product.id);
+  if(existing) existing.qty += qty;
+  else cart.push({pid:product.id, name:product.name, price:product.price, cost:product.cost, qty});
+  renderCart();
+}
+document.getElementById('manualAddBtn').addEventListener('click', ()=>{
+  const id = document.getElementById('manualProductSelect').value;
+  if(!id){ toast('กรุณาเลือกสินค้า'); return; }
+  const p = products.find(x=>x.id===id);
+  if(p) addToCart(p);
+});
+
+// ---------- ค้นหาสินค้าด้วยชื่อตอนขาย (แยกจากดรอปดาวน์) ----------
+document.getElementById('sellSearchInput').addEventListener('input', function(){
+  const q = this.value.trim().toLowerCase();
+  const el = document.getElementById('sellSearchResults');
+  if(!q){ el.innerHTML=''; return; }
+  const matches = products.filter(p=>p.name.toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){ el.innerHTML = '<div class="empty">ไม่พบสินค้า</div>'; return; }
+  el.innerHTML = matches.map(p=>
+    `<div class="prod-item" data-sellpick="${p.id}" style="cursor:pointer;">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(p.name)}</div>
+        <div class="prod-meta">ราคา ${fmt(p.price)} · คงเหลือ ${p.stock}</div>
+      </div>
+    </div>`
+  ).join('');
+  el.querySelectorAll('[data-sellpick]').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const p = products.find(x=>x.id===item.dataset.sellpick);
+      if(p){
+        addToCart(p);
+        toast(`เพิ่ม: ${p.name}`);
+        document.getElementById('sellSearchInput').value='';
+        el.innerHTML='';
+      }
+    });
+  });
+});
+
+// ---------- ช่องรับปืนยิงบาร์โค้ดโดยเฉพาะ (เชื่อถือได้กว่า เพราะเป็น input จริงรับตัวอักษรตรงๆ) ----------
+document.getElementById('scanCodeInput').addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim();
+  e.target.value = '';
+  if(!code) return;
+  const product = findProductByBarcode(code);
+  if(product){
+    playBeep();
+    addToCart(product);
+    toast(`เพิ่ม: ${product.name}`);
+  } else {
+    toast('ไม่พบสินค้านี้ กำลังเปิดหน้าเพิ่มสินค้าใหม่...');
+    openProductModal(null, code);
+    autoLookupAndFill(code);
+  }
+});
+document.getElementById('importCodeInput').addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const code = e.target.value.trim();
+  e.target.value = '';
+  if(!code) return;
+  const product = findProductByBarcode(code);
+  if(product){
+    playBeep();
+    document.getElementById('importProductSelect').value = product.id;
+    document.getElementById('importCost').value = product.cost;
+    toast(`เลือก: ${product.name}`);
+  } else {
+    toast('ไม่พบสินค้า กรุณาเพิ่มสินค้าใหม่ก่อน');
+  }
+});
+
+// ---------- ขายสินค้าที่ไม่มีบาร์โค้ด (สินค้าเฉพาะกิจ/ชั่งกิโล/ไม่ได้ลงทะเบียนไว้) ----------
+document.getElementById('noBarcodeSaleBtn').addEventListener('click', ()=>{
+  renderQuickItemsList();
+  document.getElementById('noBarcodeModalBg').classList.add('show');
+});
+document.getElementById('closeNoBarcodeModal').addEventListener('click', ()=>{
+  document.getElementById('noBarcodeModalBg').classList.remove('show');
+});
+document.getElementById('newQuickItemBtn').addEventListener('click', ()=>{
+  const name = prompt('ชื่อสินค้า:');
+  if(!name || !name.trim()) return;
+  const costStr = prompt('ราคาทุน (บาท) — ใส่ 0 ถ้าไม่ทราบ:', '0');
+  const cost = parseFloat(costStr) || 0;
+  const priceStr = prompt('ราคาขาย (บาท):');
+  const price = parseFloat(priceStr);
+  if(isNaN(price) || price<=0){ toast('ราคาไม่ถูกต้อง'); return; }
+  const item = { id: uid(), name: name.trim(), cost, price };
+  quickItems.push(item);
+  saveAll();
+  cart.push({ pid:'adhoc_'+item.id, name: item.name+' (ไม่มีบาร์โค้ด)', price:item.price, cost:item.cost, qty:1, adhoc:true });
+  renderCart();
+  renderQuickItemsList();
+  document.getElementById('noBarcodeModalBg').classList.remove('show');
+  toast(`บันทึก "${item.name}" ไว้ใช้ครั้งต่อไป และเพิ่มลงตะกร้าแล้ว`);
+});
+function renderQuickItemsList(){
+  const el = document.getElementById('quickItemsList');
+  if(!quickItems.length){ el.innerHTML = '<div class="empty">ยังไม่มีรายการที่บันทึกไว้</div>'; return; }
+  el.innerHTML = quickItems.map(item=>`
+    <div class="prod-item">
+      <div class="prod-left" data-quickadd="${item.id}" style="cursor:pointer;">
+        <div class="prod-name">${escapeHtml(item.name)}</div>
+        <div class="prod-meta">ทุน ${fmt(item.cost)} · ขาย ${fmt(item.price)}</div>
+      </div>
+      <button class="icon-btn" data-quickdel="${item.id}">🗑️</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-quickadd]').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const item = quickItems.find(q=>q.id===row.dataset.quickadd);
+      if(!item) return;
+      cart.push({ pid:'adhoc_'+item.id, name: item.name+' (ไม่มีบาร์โค้ด)', price:item.price, cost:item.cost, qty:1, adhoc:true });
+      renderCart();
+      document.getElementById('noBarcodeModalBg').classList.remove('show');
+      toast(`เพิ่ม "${item.name}" ลงตะกร้าแล้ว`);
+    });
+  });
+  el.querySelectorAll('[data-quickdel]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      quickItems = quickItems.filter(q=>q.id!==btn.dataset.quickdel);
+      saveAll();
+      renderQuickItemsList();
+      toast('ลบรายการแล้ว');
+    });
+  });
+}
+
+function renderCart(){
+  const el = document.getElementById('cartList');
+  if(!cart.length){
+    el.innerHTML = '<div class="empty">ตะกร้าว่าง</div>';
+    document.getElementById('cartTotal').textContent='0';
+    return;
+  }
+  let total=0;
+  el.innerHTML = cart.map((c,i)=>{
+    const sub = c.price*c.qty;
+    total+=sub;
+    return `<div class="cart-item">
+      <div class="cart-name">${escapeHtml(c.name)}</div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" data-dec="${i}">-</button>
+        <div class="qty-val">${c.qty}</div>
+        <button class="qty-btn" data-inc="${i}">+</button>
+      </div>
+      <div class="cart-sub">${fmt(sub)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('cartTotal').textContent = fmt(total);
+  el.querySelectorAll('[data-inc]').forEach(b=>b.addEventListener('click', ()=>{ cart[b.dataset.inc].qty++; renderCart(); }));
+  el.querySelectorAll('[data-dec]').forEach(b=>b.addEventListener('click', ()=>{
+    const idx = b.dataset.dec;
+    cart[idx].qty--;
+    if(cart[idx].qty<=0) cart.splice(idx,1);
+    renderCart();
+  }));
+}
+function getCartTotal(){
+  return cart.reduce((a,c)=>a+c.price*c.qty, 0);
+}
+
+document.getElementById('confirmSaleBtn').addEventListener('click', ()=>{
+  if(!currentCashier){ toast('กรุณาเข้าสู่ระบบพนักงานก่อนขาย'); return; }
+  if(!cart.length){ toast('ตะกร้าว่าง'); return; }
+  for(const c of cart){
+    if(c.adhoc) continue; // สินค้าไม่มีบาร์โค้ด ไม่มีสต็อกให้เช็ค
+    const p = products.find(x=>x.id===c.pid);
+    if(!p || p.stock < c.qty){ toast(`สต็อกไม่พอ: ${c.name}`); return; }
+  }
+  openPaymentModal();
+});
+
+// ================= PAYMENT MODAL (POS style) =================
+let payAmountStr = '0';
+let paymentMethod = 'cash';
+function openPaymentModal(){
+  payAmountStr = '0';
+  paymentMethod = 'cash';
+  setPaymentMethodUI();
+  document.getElementById('payTotalDisplay').textContent = fmt(getCartTotal());
+  document.getElementById('transferAmountDisplay').textContent = fmt(getCartTotal());
+  updatePaymentDisplay();
+  document.getElementById('paymentModalBg').classList.add('show');
+}
+function closePaymentModal(){
+  document.getElementById('paymentModalBg').classList.remove('show');
+}
+document.getElementById('closePaymentModal').addEventListener('click', closePaymentModal);
+
+function setPaymentMethodUI(){
+  const cashBtn = document.getElementById('methodCashBtn');
+  const transferBtn = document.getElementById('methodTransferBtn');
+  const isCash = paymentMethod === 'cash';
+  cashBtn.style.background = isCash ? 'linear-gradient(135deg,#59d9a8,var(--jade-deep))' : '';
+  cashBtn.style.color = isCash ? '#04241d' : '';
+  transferBtn.style.background = !isCash ? 'linear-gradient(135deg,#59d9a8,var(--jade-deep))' : '';
+  transferBtn.style.color = !isCash ? '#04241d' : '';
+  document.getElementById('cashPaymentArea').style.display = isCash ? 'block' : 'none';
+  document.getElementById('transferPaymentArea').style.display = isCash ? 'none' : 'block';
+}
+document.getElementById('methodCashBtn').addEventListener('click', ()=>{
+  paymentMethod = 'cash';
+  setPaymentMethodUI();
+});
+document.getElementById('methodTransferBtn').addEventListener('click', ()=>{
+  paymentMethod = 'transfer';
+  setPaymentMethodUI();
+});
+
+function updatePaymentDisplay(){
+  const received = parseFloat(payAmountStr) || 0;
+  document.getElementById('paymentDisplay').textContent = payAmountStr;
+  const total = getCartTotal();
+  const change = received - total;
+  const changeEl = document.getElementById('paymentChange');
+  const boxEl = document.getElementById('payChangeBox');
+  changeEl.textContent = (change<0?'-':'') + fmt(Math.abs(change));
+  changeEl.style.color = change < 0 ? 'var(--rose)' : 'var(--jade)';
+  boxEl.style.background = change < 0 ? 'rgba(236,107,129,.12)' : 'rgba(63,196,146,.1)';
+}
+
+document.querySelectorAll('.keypad-btn[data-key]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const key = btn.dataset.key;
+    if(payAmountStr === '0') payAmountStr = key;
+    else payAmountStr += key;
+    if(payAmountStr.length > 9) payAmountStr = payAmountStr.slice(0,9);
+    updatePaymentDisplay();
+  });
+});
+document.getElementById('clearPayBtn').addEventListener('click', ()=>{
+  payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.getElementById('backspacePayBtn').addEventListener('click', ()=>{
+  payAmountStr = payAmountStr.slice(0,-1);
+  if(!payAmountStr) payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.querySelectorAll('.quick-cash-btn[data-bill]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const bill = parseFloat(btn.dataset.bill);
+    const current = parseFloat(payAmountStr) || 0;
+    payAmountStr = String(current + bill);
+    updatePaymentDisplay();
+  });
+});
+document.getElementById('clearBillsBtn').addEventListener('click', ()=>{
+  payAmountStr = '0';
+  updatePaymentDisplay();
+});
+document.getElementById('exactCashBtn').addEventListener('click', ()=>{
+  payAmountStr = String(getCartTotal());
+  updatePaymentDisplay();
+});
+
+document.getElementById('confirmPaymentBtn').addEventListener('click', ()=>{
+  const total0 = getCartTotal();
+  let cashReceived, change;
+  if(paymentMethod === 'cash'){
+    cashReceived = parseFloat(payAmountStr) || 0;
+    if(cashReceived <= 0){ toast('กรุณากรอกจำนวนเงินที่รับ'); return; }
+    if(cashReceived < total0){ toast('เงินที่รับน้อยกว่ายอดที่ต้องชำระ'); return; }
+    change = cashReceived - total0;
+  } else {
+    // โอนเงิน: ยอดรับเท่ากับยอดที่ต้องชำระเป๊ะ ไม่มีเงินทอน และไม่นับเข้าลิ้นชักเงินสด
+    cashReceived = total0;
+    change = 0;
+  }
+  const now = new Date();
+  let total=0, totalCost=0, totalQty=0;
+  cart.forEach(c=>{
+    total += c.price*c.qty;
+    totalCost += c.cost*c.qty;
+    totalQty += c.qty;
+    if(c.adhoc) return; // สินค้าไม่มีบาร์โค้ด ไม่ต้องตัดสต็อก
+    const p = products.find(x=>x.id===c.pid);
+    if(p) p.stock -= c.qty;
+  });
+  const newSale = {
+    id: uid(),
+    date: now.toISOString().slice(0,10),
+    time: now.toTimeString().slice(0,5),
+    items: cart.map(c=>({pid:c.pid, name:c.name, qty:c.qty, price:c.price, cost:c.cost})),
+    total, totalCost, profit: total-totalCost, totalQty,
+    cashReceived, change,
+    paymentMethod,
+    transferConfirmed: paymentMethod==='transfer' ? false : true,
+    cashierName: currentCashier?.name || '-'
+  };
+  sales.push(newSale);
+  cart = [];
+  saveAll();
+  renderCart();
+  closePaymentModal();
+  toast(paymentMethod==='transfer' ? 'บันทึกการขาย (โอนเงิน) สำเร็จ ✅' : 'บันทึกการขายสำเร็จ ✅');
+  renderAll();
+  showReceipt(newSale);
+});
+
+// ================= IMPORT (Purchase) =================
+document.getElementById('importProductSelect').addEventListener('change', function(){
+  const p = products.find(x=>x.id===this.value);
+  if(p){
+    document.getElementById('importCost').value = p.cost;
+    document.getElementById('importPrice').value = '';
+  }
+});
+function readImportFormData(){
+  const pid = document.getElementById('importProductSelect').value;
+  const qty = parseInt(document.getElementById('importQty').value);
+  const cost = parseFloat(document.getElementById('importCost').value);
+  const newPrice = parseFloat(document.getElementById('importPrice').value);
+  const note = document.getElementById('importNote').value.trim();
+  const receivedBy = document.getElementById('importReceivedBy').value;
+  if(!pid){ toast('กรุณาเลือกสินค้า'); return null; }
+  if(!qty || qty<=0){ toast('กรุณาใส่จำนวน'); return null; }
+  if(cost===undefined || isNaN(cost) || cost<0){ toast('กรุณาใส่ราคาทุน'); return null; }
+  const p = products.find(x=>x.id===pid);
+  return { pid, qty, cost, newPrice: (!isNaN(newPrice) && newPrice>0) ? newPrice : null, note, receivedBy, productName: p.name };
+}
+function clearImportFormFields(){
+  document.getElementById('importQty').value='';
+  document.getElementById('importNote').value='';
+  document.getElementById('importPrice').value='';
+}
+function applyImportEntry(entry){
+  const p = products.find(x=>x.id===entry.pid);
+  if(!p) return;
+  p.stock += entry.qty;
+  p.cost = entry.cost;
+  if(entry.newPrice) p.price = entry.newPrice;
+  purchases.push({
+    id: uid(), date: todayStr(), time: new Date().toTimeString().slice(0,5),
+    pid: entry.pid, name:p.name, qty:entry.qty, cost:entry.cost, total: entry.qty*entry.cost,
+    note: entry.note, receivedBy: entry.receivedBy, newPrice: entry.newPrice
+  });
+}
+
+document.getElementById('confirmImportBtn').addEventListener('click', ()=>{
+  const data = readImportFormData();
+  if(!data) return;
+  applyImportEntry(data);
+  saveAll();
+  clearImportFormFields();
+  toast(data.newPrice ? 'บันทึกรับสินค้าเข้า + ปรับราคาขายใหม่แล้ว ✅' : 'บันทึกรับสินค้าเข้าสำเร็จ ✅');
+  renderAll();
+  stopScanner('importP');
+  document.getElementById('startScanImportBtn').style.display='inline-block';
+  document.getElementById('stopScanImportBtn').style.display='none';
+});
+
+// ---------- ระบบรายการรอบันทึก (บันทึกรับทั้งหมดทีเดียว) ----------
+let importBatch = [];
+document.getElementById('addToImportBatchBtn').addEventListener('click', ()=>{
+  const data = readImportFormData();
+  if(!data) return;
+  importBatch.push(data);
+  clearImportFormFields();
+  renderImportBatchList();
+  toast(`เพิ่ม "${data.productName}" ลงรายการรอบันทึกแล้ว (${importBatch.length} รายการ)`);
+});
+function renderImportBatchList(){
+  const card = document.getElementById('importBatchCard');
+  const listEl = document.getElementById('importBatchList');
+  card.style.display = importBatch.length ? 'block' : 'none';
+  document.getElementById('importBatchCount').textContent = importBatch.length;
+  let total = 0;
+  listEl.innerHTML = importBatch.map((e,idx)=>{
+    const sub = e.qty*e.cost;
+    total += sub;
+    return `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(e.productName)}</div>
+        <div class="prod-meta">${e.qty} ชิ้น × ${fmt(e.cost)}${e.newPrice?' · ราคาขายใหม่ '+fmt(e.newPrice):''}${e.receivedBy?' · '+escapeHtml(e.receivedBy):''}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="tx-amt expense">-${fmt(sub)}</div>
+        <button class="icon-btn" data-removebatch="${idx}">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('importBatchTotal').textContent = fmt(total);
+  listEl.querySelectorAll('[data-removebatch]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      importBatch.splice(parseInt(btn.dataset.removebatch),1);
+      renderImportBatchList();
+    });
+  });
+}
+document.getElementById('saveImportBatchBtn').addEventListener('click', ()=>{
+  if(!importBatch.length) return;
+  importBatch.forEach(applyImportEntry);
+  saveAll();
+  const count = importBatch.length;
+  importBatch = [];
+  renderImportBatchList();
+  toast(`บันทึกรับสินค้าเข้าทั้งหมด ${count} รายการเรียบร้อยแล้ว ✅`);
+  renderAll();
+});
+
+function renderImportHistory(){
+  const el = document.getElementById('importHistory');
+  const recent = [...purchases].sort((a,b)=> (b.date+(b.time||'')).localeCompare(a.date+(a.time||''))).slice(0,8);
+  if(!recent.length){ el.innerHTML='<div class="empty">ยังไม่มีการนำเข้าสินค้า</div>'; return; }
+  el.innerHTML = recent.map(p=>{
+    const dt = new Date(p.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    const timeStr = p.time ? ' ' + p.time + ' น.' : '';
+    const byStr = p.receivedBy ? ` · รับโดย ${escapeHtml(p.receivedBy)}` : '';
+    return `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(p.name)}</div>
+        <div class="prod-meta">${dateStr}${timeStr} · ${p.qty} ชิ้น × ${fmt(p.cost)}${byStr}${p.note?' · '+escapeHtml(p.note):''}</div>
+      </div>
+      <div class="tx-amt expense">-${fmt(p.total)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ================= WITHDRAW =================
+document.getElementById('quickWithdraw').addEventListener('click', ()=>{
+  document.getElementById('wDate').value = todayStr();
+  document.getElementById('wAmount').value='';
+  document.getElementById('wNote').value='';
+  document.getElementById('withdrawModalBg').classList.add('show');
+});
+document.getElementById('closeWithdrawModal').addEventListener('click', ()=>{
+  document.getElementById('withdrawModalBg').classList.remove('show');
+});
+document.getElementById('saveWithdrawBtn').addEventListener('click', ()=>{
+  const date = document.getElementById('wDate').value;
+  const amount = parseFloat(document.getElementById('wAmount').value);
+  const note = document.getElementById('wNote').value.trim();
+  if(!date){ toast('กรุณาเลือกวันที่'); return; }
+  if(!amount || amount<=0){ toast('กรุณาใส่จำนวนเงิน'); return; }
+  withdraws.push({id:uid(), date, amount, note});
+  saveAll();
+  document.getElementById('withdrawModalBg').classList.remove('show');
+  toast('บันทึกค่าใช้จ่ายแล้ว');
+  renderAll();
+});
+
+// ================= พนักงานขาย (Staff) =================
+function renderStaffList(){
+  const el = document.getElementById('staffList');
+  if(!el) return;
+  if(!staffList.length){ el.innerHTML = '<div class="empty">ยังไม่มีพนักงาน</div>'; return; }
+  el.innerHTML = staffList.map(s=>
+    `<div class="tx-item"><div class="prod-left"><div class="prod-name">${escapeHtml(s.name)}</div></div><button class="icon-btn" data-delstaff="${s.id}">🗑️</button></div>`
+  ).join('');
+  el.querySelectorAll('[data-delstaff]').forEach(b=>b.addEventListener('click', ()=>{
+    if(!confirm('ลบพนักงานคนนี้ใช่หรือไม่?')) return;
+    staffList = staffList.filter(s=>s.id!==b.dataset.delstaff);
+    saveAll();
+    renderStaffList();
+    refreshCashierSelect();
+    toast('ลบพนักงานแล้ว');
+  }));
+}
+document.getElementById('addStaffBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('newStaffName').value.trim();
+  const pin = document.getElementById('newStaffPin').value.trim();
+  if(!name){ toast('กรุณาใส่ชื่อพนักงาน'); return; }
+  if(!/^\d{4}$/.test(pin)){ toast('รหัส PIN ต้องเป็นตัวเลข 4 หลัก'); return; }
+  staffList.push({id: uid(), name, pin});
+  saveAll();
+  document.getElementById('newStaffName').value = '';
+  document.getElementById('newStaffPin').value = '';
+  renderStaffList();
+  refreshCashierSelect();
+  toast('เพิ่มพนักงานแล้ว ✅');
+});
+
+// ================= ล็อกอินพนักงานก่อนขาย =================
+function refreshCashierSelect(){
+  const sel = document.getElementById('cashierSelect');
+  const importSel = document.getElementById('importReceivedBy');
+  const optsHtml = staffList.map(s=>`<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+  if(sel) sel.innerHTML = '<option value="">-- เลือกชื่อพนักงาน --</option>' +
+    staffList.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  if(importSel) importSel.innerHTML = '<option value="">-- ไม่ระบุ --</option>' + optsHtml;
+}
+function updateCashierGateUI(){
+  const loggedIn = !!currentCashier;
+  document.getElementById('cashierLoginCard').style.display = loggedIn ? 'none' : 'block';
+  document.getElementById('cashierStatusBar').style.display = loggedIn ? 'block' : 'none';
+  document.getElementById('saleContentArea').style.display = loggedIn ? 'block' : 'none';
+  if(loggedIn) document.getElementById('cashierNameDisplay').textContent = currentCashier.name;
+}
+document.getElementById('cashierLoginBtn').addEventListener('click', ()=>{
+  const staffId = document.getElementById('cashierSelect').value;
+  const pin = document.getElementById('cashierPinInput').value.trim();
+  if(!staffId){ toast('กรุณาเลือกชื่อพนักงาน'); return; }
+  const staff = staffList.find(s=>s.id===staffId);
+  if(!staff || staff.pin !== pin){ toast('รหัส PIN ไม่ถูกต้อง'); return; }
+  currentCashier = { id: staff.id, name: staff.name };
+  document.getElementById('cashierPinInput').value = '';
+  updateCashierGateUI();
+  toast(`เข้าสู่ระบบสำเร็จ: ${staff.name} ✅`);
+});
+document.getElementById('cashierLogoutBtn').addEventListener('click', ()=>{
+  currentCashier = null;
+  cart = [];
+  renderCart();
+  updateCashierGateUI();
+  toast('ออกจากระบบแล้ว');
+});
+
+// ================= ลิ้นชักเงินสด (Cash Drawer) =================
+function computeDrawerBalance(){
+  const inject = cashDrawer.filter(c=>c.type==='inject').reduce((a,c)=>a+c.amount,0);
+  const safekeep = cashDrawer.filter(c=>c.type==='safekeep').reduce((a,c)=>a+c.amount,0);
+  // นับเฉพาะยอดขายที่จ่ายเป็นเงินสด (ไม่รวมโอนเงิน เพราะเงินโอนไม่เข้าลิ้นชักจริง)
+  const salesTotal = sales.filter(s=>(s.paymentMethod||'cash')==='cash').reduce((a,s)=>a+s.total,0);
+  const expenseTotal = withdraws.reduce((a,w)=>a+w.amount,0);
+  return inject + salesTotal - expenseTotal - safekeep;
+}
+document.getElementById('injectCashBtn').addEventListener('click', ()=>{
+  document.getElementById('injectAmount').value = '';
+  document.getElementById('injectNote').value = '';
+  document.getElementById('injectCashModalBg').classList.add('show');
+});
+document.getElementById('closeInjectCashModal').addEventListener('click', ()=>{
+  document.getElementById('injectCashModalBg').classList.remove('show');
+});
+document.getElementById('saveInjectBtn').addEventListener('click', ()=>{
+  const amount = parseFloat(document.getElementById('injectAmount').value);
+  const note = document.getElementById('injectNote').value.trim();
+  if(!amount || amount<=0){ toast('กรุณาใส่จำนวนเงิน'); return; }
+  cashDrawer.push({ id: uid(), type:'inject', amount, date: todayStr(), time: new Date().toTimeString().slice(0,5), note, cashierName: currentCashier?.name || '-' });
+  saveAll();
+  document.getElementById('injectCashModalBg').classList.remove('show');
+  toast('เติมเงินสดเรียบร้อยแล้ว ✅');
+  renderAll();
+});
+document.getElementById('safekeepCashBtn').addEventListener('click', ()=>{
+  document.getElementById('safekeepAmount').value = '';
+  document.getElementById('safekeepNote').value = '';
+  document.getElementById('safekeepModalBg').classList.add('show');
+});
+document.getElementById('closeSafekeepModal').addEventListener('click', ()=>{
+  document.getElementById('safekeepModalBg').classList.remove('show');
+});
+document.getElementById('saveSafekeepBtn').addEventListener('click', ()=>{
+  const amount = parseFloat(document.getElementById('safekeepAmount').value);
+  const note = document.getElementById('safekeepNote').value.trim();
+  if(!amount || amount<=0){ toast('กรุณาใส่จำนวนเงิน'); return; }
+  const balance = computeDrawerBalance();
+  if(amount > balance){ toast(`เงินสดในลิ้นชักไม่พอ (มี ${fmt(balance)} บาท)`); return; }
+  requirePin('กรอกรหัส PIN เพื่อยืนยันการถอนเงินเก็บ', ()=>{
+    cashDrawer.push({ id: uid(), type:'safekeep', amount, date: todayStr(), time: new Date().toTimeString().slice(0,5), note, cashierName: currentCashier?.name || '-' });
+    saveAll();
+    document.getElementById('safekeepModalBg').classList.remove('show');
+    toast('บันทึกการถอนเงินเก็บแล้ว ✅');
+    renderAll();
+  }, 'normal');
+});
+
+// ================= นับเงินปิดรอบ (Shift Close) =================
+const DENOMINATIONS = [1000, 500, 100, 50, 20, 10, 5, 2, 1];
+function renderDenomCounter(){
+  const el = document.getElementById('denomCounterList');
+  el.innerHTML = DENOMINATIONS.map(v=>{
+    const isCoin = v <= 10;
+    const label = isCoin ? `เหรียญ ${v} บาท` : `แบงก์ ${v} บาท`;
+    return `<div class="denom-row">
+      <div class="denom-label">${label}</div>
+      <input type="number" min="0" inputmode="numeric" data-denom="${v}" placeholder="0">
+      <div class="denom-sub" data-denomsub="${v}">0.00</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-denom]').forEach(inp=>{
+    inp.addEventListener('input', updateDenomCounterTotal);
+  });
+}
+function updateDenomCounterTotal(){
+  let total = 0;
+  DENOMINATIONS.forEach(v=>{
+    const inp = document.querySelector(`[data-denom="${v}"]`);
+    const qty = parseInt(inp.value) || 0;
+    const sub = qty * v;
+    total += sub;
+    document.querySelector(`[data-denomsub="${v}"]`).textContent = fmt(sub);
+  });
+  document.getElementById('denomCounterTotal').textContent = fmt(total);
+  document.getElementById('shiftCountedAmount').value = total || '';
+  document.getElementById('shiftCountedAmount').dispatchEvent(new Event('input'));
+}
+
+document.getElementById('shiftCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('shiftCountedAmount').value = '';
+  document.getElementById('shiftCloseNote').value = '';
+  renderDenomCounter();
+  document.getElementById('denomCounterTotal').textContent = '0.00';
+  document.getElementById('shiftCountingSection').style.display = 'block';
+  document.getElementById('shiftResultSection').style.display = 'none';
+  renderShiftCloseHistory();
+  document.getElementById('shiftCloseModalBg').classList.add('show');
+});
+document.getElementById('closeShiftCloseModal').addEventListener('click', ()=>{
+  document.getElementById('shiftCloseModalBg').classList.remove('show');
+});
+let lastShiftCloseResult = null;
+document.getElementById('saveShiftCloseBtn').addEventListener('click', ()=>{
+  const expected = computeDrawerBalance();
+  const counted = parseFloat(document.getElementById('shiftCountedAmount').value);
+  const note = document.getElementById('shiftCloseNote').value.trim();
+  if(isNaN(counted)){ toast('กรุณาใส่จำนวนเงินที่นับได้'); return; }
+  const diff = counted - expected;
+  const record = {
+    id: uid(), date: todayStr(), time: new Date().toTimeString().slice(0,5),
+    cashierName: currentCashier?.name || '-', expected, counted, diff, note
+  };
+  shiftCloses.push(record);
+  saveAll();
+  lastShiftCloseResult = record;
+
+  // แสดงผลลัพธ์หลังบันทึกเท่านั้น (ก่อนหน้านี้ซ่อนไว้ กันการนับเข้าเป้า)
+  document.getElementById('shiftResultExpected').textContent = fmt(expected);
+  document.getElementById('shiftResultCounted').textContent = fmt(counted);
+  const diffEl = document.getElementById('shiftResultDiff');
+  diffEl.textContent = (diff<0?'-':diff>0?'+':'') + fmt(Math.abs(diff));
+  diffEl.className = 'val ' + (diff===0 ? 'profit-pos' : diff<0 ? 'profit-neg' : 'neutral');
+  document.getElementById('shiftCountingSection').style.display = 'none';
+  document.getElementById('shiftResultSection').style.display = 'block';
+
+  toast(diff===0 ? 'เงินตรงเป๊ะ ✅' : diff>0 ? `เงินเกิน ${fmt(diff)} บาท` : `เงินขาด ${fmt(Math.abs(diff))} บาท ⚠️`);
+  renderShiftCloseHistory();
+});
+document.getElementById('newShiftCountBtn').addEventListener('click', ()=>{
+  document.getElementById('shiftCountedAmount').value = '';
+  document.getElementById('shiftCloseNote').value = '';
+  renderDenomCounter();
+  document.getElementById('denomCounterTotal').textContent = '0.00';
+  document.getElementById('shiftCountingSection').style.display = 'block';
+  document.getElementById('shiftResultSection').style.display = 'none';
+});
+document.getElementById('printShiftResultBtn').addEventListener('click', ()=>{
+  if(!lastShiftCloseResult) return;
+  const r = lastShiftCloseResult;
+  const dt = new Date(r.date);
+  const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${toBE(dt.getFullYear())}`;
+  const diffLabel = r.diff===0 ? 'ตรงเป๊ะ' : r.diff>0 ? `เกิน ${fmt(r.diff)} บาท` : `ขาด ${fmt(Math.abs(r.diff))} บาท`;
+  printReport('ใบบันทึกการนับเงินปิดรอบ', [
+    { left:'วันที่/เวลา', right:`${dateStr} ${r.time} น.` },
+    { left:'ผู้นับ', right:r.cashierName },
+    { left:'ยอดที่ควรมี', right:fmt(r.expected)+' บาท' },
+    { left:'นับได้จริง', right:fmt(r.counted)+' บาท' },
+    { left:'ผลต่าง', right:diffLabel },
+    { left:'หมายเหตุ', right:r.note||'-' }
+  ]);
+});
+function renderShiftCloseHistory(){
+  const el = document.getElementById('shiftCloseHistory');
+  const recent = [...shiftCloses].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  if(!recent.length){ el.innerHTML = '<div class="empty">ยังไม่มีประวัติ</div>'; return; }
+  el.innerHTML = recent.map(s=>{
+    const color = s.diff===0 ? '#6cf29b' : s.diff<0 ? '#ff8a8a' : '#5ee6ff';
+    const sign = s.diff>0 ? '+' : '';
+    return `<div class="adjust-history-item">
+      <div>${s.date} ${s.time} · ${escapeHtml(s.cashierName)}</div>
+      <div style="color:${color}; font-weight:700;">${sign}${fmt(s.diff)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ================= STOCK ADJUSTMENT =================
+let adjustProductId = null;
+function openAdjustModal(product){
+  adjustProductId = product.id;
+  document.getElementById('adjustProductName').textContent = product.name;
+  document.getElementById('adjustCurrentStock').textContent = product.stock;
+  document.getElementById('adjustNewStock').value = product.stock;
+  document.getElementById('adjustNote').value = '';
+  renderAdjustHistory(product.id);
+  document.getElementById('adjustModalBg').classList.add('show');
+}
+document.getElementById('closeAdjustModal').addEventListener('click', ()=>{
+  document.getElementById('adjustModalBg').classList.remove('show');
+});
+document.getElementById('saveAdjustBtn').addEventListener('click', ()=>{
+  const p = products.find(x=>x.id===adjustProductId);
+  if(!p){ return; }
+  const newStock = parseInt(document.getElementById('adjustNewStock').value);
+  const reason = document.getElementById('adjustReason').value;
+  const note = document.getElementById('adjustNote').value.trim();
+  if(isNaN(newStock) || newStock<0){ toast('กรุณาใส่จำนวนที่ถูกต้อง'); return; }
+  const diff = newStock - p.stock;
+  if(diff===0){ toast('จำนวนไม่เปลี่ยนแปลง'); return; }
+
+  const doSave = ()=>{
+    adjustments.push({
+      id: uid(), pid: p.id, name: p.name, date: todayStr(), time: new Date().toTimeString().slice(0,5),
+      before: p.stock, after: newStock, diff, reason, note
+    });
+    p.stock = newStock;
+    saveAll();
+    toast(`ปรับสต็อก ${p.name} เป็น ${newStock} แล้ว`);
+    renderAdjustHistory(p.id);
+    renderAll();
+  };
+
+  if(diff < 0){
+    requirePin(`ปรับสต็อกออก ${Math.abs(diff)} ชิ้น (${p.name}) — กรอกรหัส PIN เพื่อยืนยัน`, doSave);
+  } else {
+    doSave();
+  }
+});
+function renderAdjustHistory(pid){
+  const el = document.getElementById('adjustHistoryList');
+  const list = adjustments.filter(a=>a.pid===pid).sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,10);
+  if(!list.length){ el.innerHTML = '<div class="empty">ยังไม่มีประวัติการปรับ</div>'; return; }
+  el.innerHTML = list.map(a=>{
+    const sign = a.diff>0 ? '+' : '';
+    const color = a.diff>0 ? '#6cf29b' : '#ff8a8a';
+    return `<div class="adjust-history-item">
+      <div>${a.date} ${a.time} · ${escapeHtml(a.reason)}${a.note?' ('+escapeHtml(a.note)+')':''}</div>
+      <div style="color:${color}; font-weight:700;">${sign}${a.diff} (${a.before}→${a.after})</div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('storeSettingsBtn').addEventListener('click', ()=>{
+  requirePin('กรอกรหัส PIN ระดับสูงสุด เพื่อเข้าหน้าตั้งค่าร้าน', ()=>{
+    document.getElementById('storeName').value = storeSettings.name || '';
+    document.getElementById('storeAddress').value = storeSettings.address || '';
+    document.getElementById('storePhone').value = storeSettings.phone || '';
+    document.getElementById('storePin').value = '';
+    document.getElementById('storeAdminPin').value = '';
+    document.getElementById('storeSettingsModalBg').classList.add('show');
+  }, 'admin');
+});
+document.getElementById('closeStoreSettingsModal').addEventListener('click', ()=>{
+  document.getElementById('storeSettingsModalBg').classList.remove('show');
+});
+document.getElementById('saveStoreSettingsBtn').addEventListener('click', ()=>{
+  storeSettings = {
+    name: document.getElementById('storeName').value.trim() || 'ร้านค้าของฉัน',
+    address: document.getElementById('storeAddress').value.trim(),
+    phone: document.getElementById('storePhone').value.trim()
+  };
+  localStorage.setItem(K_STORE_SETTINGS, JSON.stringify(storeSettings));
+
+  const pinInput = document.getElementById('storePin').value.trim();
+  const adminPinInput = document.getElementById('storeAdminPin').value.trim();
+
+  if(pinInput && !/^\d{4,6}$/.test(pinInput)){ toast('รหัส PIN ปกติ ต้องเป็นตัวเลข 4-6 หลัก'); return; }
+  if(adminPinInput && !/^\d{4,6}$/.test(adminPinInput)){ toast('รหัส PIN ระดับสูงสุด ต้องเป็นตัวเลข 4-6 หลัก'); return; }
+
+  document.getElementById('storeSettingsModalBg').classList.remove('show');
+  toast('บันทึกข้อมูลร้านแล้ว ✅');
+
+  // เปลี่ยนรหัส PIN ต้องยืนยันรหัสเดิมก่อนเสมอ กันคนอื่นมาแก้รหัสตามใจชอบ
+  // (ทำทีละอันตามลำดับ ป้องกันการขอยืนยัน PIN ซ้อนกันจนคำขอแรกหาย)
+  if(pinInput){
+    requirePin('ยืนยันรหัส PIN ปกติเดิม เพื่อเปลี่ยนเป็นรหัสใหม่', ()=>{
+      localStorage.setItem(K_PIN, pinInput);
+      toast('เปลี่ยนรหัส PIN ปกติเรียบร้อยแล้ว ✅');
+      if(adminPinInput){
+        requirePin('ยืนยันรหัส PIN ระดับสูงสุดเดิม เพื่อเปลี่ยนเป็นรหัสใหม่', ()=>{
+          localStorage.setItem(K_ADMIN_PIN, adminPinInput);
+          toast('เปลี่ยนรหัส PIN ระดับสูงสุดเรียบร้อยแล้ว ✅');
+        }, 'admin');
+      }
+    }, 'normal');
+  } else if(adminPinInput){
+    requirePin('ยืนยันรหัส PIN ระดับสูงสุดเดิม เพื่อเปลี่ยนเป็นรหัสใหม่', ()=>{
+      localStorage.setItem(K_ADMIN_PIN, adminPinInput);
+      toast('เปลี่ยนรหัส PIN ระดับสูงสุดเรียบร้อยแล้ว ✅');
+    }, 'admin');
+  }
+});
+
+// ================= ระบบยืนยันรหัส PIN (ใช้ซ้ำได้ทุกจุดที่ต้องป้องกัน) =================
+let pinSuccessCallback = null;
+let pinCheckLevel = 'normal'; // 'normal' หรือ 'admin'
+function requirePin(description, onSuccess, level){
+  pinCheckLevel = level || 'normal';
+  document.getElementById('pinModalTitle').textContent = pinCheckLevel==='admin' ? '🔑 ยืนยันรหัส PIN ระดับสูงสุด' : '🔒 ยืนยันรหัสผ่าน';
+  document.getElementById('pinModalDesc').textContent = description;
+  document.getElementById('pinInput').value = '';
+  pinSuccessCallback = onSuccess;
+  document.getElementById('pinModalBg').classList.add('show');
+}
+document.getElementById('closePinModal').addEventListener('click', ()=>{
+  document.getElementById('pinModalBg').classList.remove('show');
+  pinSuccessCallback = null;
+});
+document.getElementById('pinConfirmBtn').addEventListener('click', ()=>{
+  const entered = document.getElementById('pinInput').value.trim();
+  const correctPin = pinCheckLevel === 'admin'
+    ? (localStorage.getItem(K_ADMIN_PIN) || '9999')
+    : (localStorage.getItem(K_PIN) || '1234');
+  if(entered !== correctPin){
+    toast('รหัส PIN ไม่ถูกต้อง');
+    return;
+  }
+  document.getElementById('pinModalBg').classList.remove('show');
+  const cb = pinSuccessCallback;
+  pinSuccessCallback = null;
+  if(cb) cb();
+});
+
+// ================= ศูนย์จัดการลบข้อมูล (สิทธิ์สูงสุด - PIN แยก) =================
+document.getElementById('openDeleteCenterBtn').addEventListener('click', ()=>{
+  ['delSales','delWithdraws','delBills','delCost','delStock'].forEach(id=>{
+    document.getElementById(id).checked = false;
+  });
+  document.getElementById('deleteCenterModalBg').classList.add('show');
+});
+document.getElementById('closeDeleteCenterModal').addEventListener('click', ()=>{
+  document.getElementById('deleteCenterModalBg').classList.remove('show');
+});
+document.getElementById('confirmDeleteCenterBtn').addEventListener('click', ()=>{
+  const opts = {
+    sales: document.getElementById('delSales').checked,
+    withdraws: document.getElementById('delWithdraws').checked,
+    bills: document.getElementById('delBills').checked,
+    cost: document.getElementById('delCost').checked,
+    stock: document.getElementById('delStock').checked
+  };
+  const anySelected = Object.values(opts).some(v=>v);
+  if(!anySelected){ toast('กรุณาเลือกอย่างน้อย 1 รายการ'); return; }
+
+  const labels = [];
+  if(opts.sales || opts.bills) labels.push('ยอดขาย/บิล');
+  if(opts.withdraws) labels.push('ถอนเงิน');
+  if(opts.cost) labels.push('ราคาต้นทุน');
+  if(opts.stock) labels.push('สต็อกทั้งหมด');
+  if(!confirm(`ยืนยันลบ: ${labels.join(', ')}\n\nการกระทำนี้ไม่สามารถกู้คืนได้ แนะนำ Export สำรองก่อนเสมอ`)) return;
+
+  requirePin('กรอกรหัส PIN ระดับสูงสุด เพื่อยืนยันการลบข้อมูลที่เลือก', ()=>{
+    if(opts.sales || opts.bills){ sales = []; }
+    if(opts.withdraws){ withdraws = []; }
+    if(opts.cost){ products.forEach(p=>{ p.cost = 0; }); }
+    if(opts.stock){ products.forEach(p=>{ p.stock = 0; }); }
+    saveAll();
+    renderAll();
+    document.getElementById('deleteCenterModalBg').classList.remove('show');
+    toast(`ลบข้อมูลเรียบร้อยแล้ว: ${labels.join(', ')}`);
+  }, 'admin');
+});
+
+function generateReceiptNo(sale){
+  return 'R' + sale.date.replace(/-/g,'') + '-' + sale.id.slice(-5).toUpperCase();
+}
+
+// ================= RECEIPT =================
+function showReceipt(sale){
+  const dt = new Date(sale.date);
+  const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()]} ${toBE(dt.getFullYear())}`;
+  const receiptNo = generateReceiptNo(sale);
+  let itemsHtml = sale.items.map(i=>{
+    const sub = i.qty*i.price;
+    return `
+      <div class="r-item-name">${escapeHtml(i.name)}</div>
+      <div class="r-row r-item-sub"><div>${i.qty} x ${fmt(i.price)}</div><div>${fmt(sub)}</div></div>
+    `;
+  }).join('');
+  const addressLine = storeSettings.address ? `<div class="r-store-meta">${escapeHtml(storeSettings.address)}</div>` : '';
+  const phoneLine = storeSettings.phone ? `<div class="r-store-meta">โทร. ${escapeHtml(storeSettings.phone)}</div>` : '';
+  document.getElementById('receiptContent').innerHTML = `
+    <div class="r-store-name">${escapeHtml(storeSettings.name || 'ร้านค้าของฉัน')}</div>
+    ${addressLine}
+    ${phoneLine}
+    <div class="r-title">ใบเสร็จรับเงิน / RECEIPT</div>
+    <div class="r-line-solid"></div>
+    <div class="r-meta-row"><div>เลขที่: ${receiptNo}</div><div>${dateStr}</div></div>
+    <div class="r-meta-row"><div>${sale.cashierName && sale.cashierName!=='-' ? 'พนักงาน: '+escapeHtml(sale.cashierName) : ''}</div><div>เวลา ${sale.time} น.</div></div>
+    <div class="r-line"></div>
+    ${itemsHtml}
+    <div class="r-line"></div>
+    <div class="r-row"><div>จำนวนชิ้นรวม</div><div>${sale.totalQty} ชิ้น</div></div>
+    <div class="r-line-solid"></div>
+    <div class="r-total-row"><div>ยอดรวมสุทธิ</div><div>${fmt(sale.total)} บาท</div></div>
+    <div class="r-line"></div>
+    <div class="r-row"><div>ชำระโดย</div><div>${sale.paymentMethod==='transfer' ? '📱 โอนเงิน' : '💵 เงินสด'}</div></div>
+    ${sale.cashReceived!==undefined && sale.paymentMethod!=='transfer' ? `
+    <div class="r-row"><div>รับเงินมา</div><div>${fmt(sale.cashReceived)} บาท</div></div>
+    <div class="r-row"><div>เงินทอน</div><div>${fmt(sale.change)} บาท</div></div>
+    ` : ''}
+    <div class="r-thanks">ขอบคุณที่ใช้บริการ</div>
+    <div class="r-footer">เก็บใบเสร็จนี้ไว้เป็นหลักฐาน</div>
+  `;
+  document.getElementById('receiptModalBg').classList.add('show');
+}
+document.getElementById('closeReceiptModal').addEventListener('click', ()=>{
+  document.getElementById('receiptModalBg').classList.remove('show');
+});
+document.getElementById('printReceiptBtn').addEventListener('click', ()=>{
+  window.print();
+});
+
+// ================= พิมพ์รายงาน (สินค้าใกล้หมด / สินค้าขายดี) =================
+function printReport(title, rows){
+  // rows: [{left, right}]
+  const now = new Date();
+  const dateStr = `${now.getDate()} ${THAI_MONTHS[now.getMonth()]} ${toBE(now.getFullYear())} ${now.toTimeString().slice(0,5)} น.`;
+  const rowsHtml = rows.length ? rows.map(r=>
+    `<div class="r-row"><div>${escapeHtml(r.left)}</div><div>${escapeHtml(r.right)}</div></div>`
+  ).join('') : '<div class="r-row"><div>ไม่มีข้อมูล</div><div></div></div>';
+  document.getElementById('receiptContent').innerHTML = `
+    <div class="r-store-name">${escapeHtml(storeSettings.name || 'ร้านค้าของฉัน')}</div>
+    <div class="r-title">${escapeHtml(title)}</div>
+    <div class="r-sub">${dateStr}</div>
+    <div class="r-line-solid"></div>
+    ${rowsHtml}
+    <div class="r-line"></div>
+    <div class="r-footer">รวมทั้งหมด ${rows.length} รายการ</div>
+  `;
+  document.getElementById('receiptModalBg').classList.add('show');
+}
+document.getElementById('printLowStockBtn').addEventListener('click', ()=>{
+  const low = products.filter(p=>p.stock <= (p.lowStock ?? 5));
+  const rows = low.map(p=>({ left: p.name, right: `เหลือ ${p.stock}` }));
+  printReport('รายการสินค้าใกล้หมด', rows);
+});
+document.getElementById('printBestSellersBtn').addEventListener('click', ()=>{
+  const medals = ['🥇','🥈','🥉'];
+  const rows = lastBestSellers.map(([name,d],idx)=>({
+    left: `${medals[idx] || '#'+(idx+1)} ${name}`,
+    right: `${d.qty} ชิ้น / ${fmt(d.total)} บ.`
+  }));
+  printReport('รายงานสินค้าขายดี', rows);
+});
+document.getElementById('printInventoryValueBtn').addEventListener('click', ()=>{
+  const rows = lastInventoryValueRows.map(([cat,d])=>({
+    left: cat,
+    right: `${fmt(d.value)} บ.`
+  }));
+  const grandTotal = lastInventoryValueRows.grandTotal || 0;
+  rows.push({ left: '— ยอดรวมทั้งร้าน —', right: `${fmt(grandTotal)} บ.` });
+  printReport('มูลค่าสต็อกคงเหลือ (ราคาทุน)', rows);
+});
+document.getElementById('printRangeSalesBtn').addEventListener('click', ()=>{
+  const sorted = [...lastRangeSales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  const rows = sorted.map(s=>({
+    left: `${s.date} ${s.time} · ${s.items.map(i=>i.name+' x'+i.qty).join(', ')}`,
+    right: `${fmt(s.total)} บ.`
+  }));
+  const total = sorted.reduce((a,s)=>a+s.total,0);
+  rows.push({ left: '— ยอดรวม —', right: `${fmt(total)} บ.` });
+  printReport('รายการขายในช่วงนี้', rows);
+});
+
+function checkBackupReminder(){
+  const el = document.getElementById('backupReminder');
+  const hasData = sales.length>0 || products.length>0 || purchases.length>0;
+  if(!hasData){ el.style.display='none'; el.className=''; return; }
+  const lastTs = parseInt(localStorage.getItem(K_LAST_BACKUP)) || 0;
+  const daysSince = lastTs ? Math.floor((Date.now()-lastTs)/86400000) : 999;
+  if(daysSince < 7){
+    el.style.display='none'; el.className='';
+    return;
+  }
+  el.className = daysSince >= 14 ? 'danger' : 'warn';
+  document.getElementById('backupReminderTitle').textContent = lastTs
+    ? `📥 ยังไม่ได้สำรองข้อมูลมา ${daysSince} วันแล้ว`
+    : `📥 ยังไม่เคยสำรองข้อมูลเลย`;
+  document.getElementById('backupReminderSub').textContent = 'แตะตรงนี้เพื่อบันทึกไฟล์ข้อมูลไว้กันหาย (Export)';
+}
+document.getElementById('backupReminder').addEventListener('click', ()=>{
+  document.getElementById('exportBtn').click();
+});
+
+// ================= HOME =================
+function renderHome(){
+  const today = todayStr();
+  const todaySales = sales.filter(s=>s.date===today);
+  const todayWithdraws = withdraws.filter(w=>w.date===today);
+  const income = todaySales.reduce((a,s)=>a+s.total,0);
+  const cost = todaySales.reduce((a,s)=>a+s.totalCost,0);
+  const wd = todayWithdraws.reduce((a,w)=>a+w.amount,0);
+  const profit = income-cost;
+  const net = profit-wd;
+
+  document.getElementById('hIncome').textContent = fmt(income);
+  document.getElementById('hCost').textContent = fmt(cost);
+  document.getElementById('hWithdraw').textContent = fmt(wd);
+  const pEl = document.getElementById('hProfit');
+  pEl.textContent = (profit<0?'-':'')+fmt(Math.abs(profit));
+  pEl.className = 'val ' + (profit>=0?'profit-pos':'profit-neg');
+  const nEl = document.getElementById('hNet');
+  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
+  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
+
+  document.getElementById('drawerBalance').textContent = fmt(computeDrawerBalance());
+
+  const low = products.filter(p=>p.stock <= (p.lowStock ?? 5));
+  const lowEl = document.getElementById('lowStockList');
+  lowEl.innerHTML = low.length ? low.slice(0,6).map(p=>
+    `<div class="prod-item"><div class="prod-left"><div class="prod-name">${escapeHtml(p.name)}</div></div><div class="prod-stock low">เหลือ ${p.stock}</div></div>`
+  ).join('') : '<div class="empty">สต็อกยังปกติดี</div>';
+
+  const recent = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  const recEl = document.getElementById('recentSales');
+  recEl.innerHTML = recent.length ? recent.map(s=>{
+    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;">
+      <div class="prod-left"><div class="prod-name">${s.time} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(itemNames)}</div></div>
+      <div class="tx-amt income">+${fmt(s.total)}</div>
+    </div>`;
+  }).join('') : '<div class="empty">ยังไม่มีการขายวันนี้</div>';
+  recEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
+// ================= REPORT =================
+let reportRange = 'day';
+let reportDate = new Date();
+let lastBestSellers = [];
+let lastRangeSales = [];
+
+document.querySelectorAll('.report-toggle .btn-flat').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.report-toggle .btn-flat').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    reportRange = btn.dataset.range;
+    renderReport();
+  });
+});
+document.getElementById('prevRange').addEventListener('click', ()=>{ shiftRange(-1); renderReport(); });
+document.getElementById('nextRange').addEventListener('click', ()=>{ shiftRange(1); renderReport(); });
+
+function shiftRange(dir){
+  if(reportRange==='day') reportDate.setDate(reportDate.getDate()+dir);
+  else if(reportRange==='month') reportDate.setMonth(reportDate.getMonth()+dir);
+  else reportDate.setFullYear(reportDate.getFullYear()+dir);
+}
+function inRange(dateStr){
+  const dt = new Date(dateStr);
+  if(reportRange==='day'){
+    return dt.toISOString().slice(0,10) === reportDate.toISOString().slice(0,10);
+  } else if(reportRange==='month'){
+    return dt.getFullYear()===reportDate.getFullYear() && dt.getMonth()===reportDate.getMonth();
+  } else {
+    return dt.getFullYear()===reportDate.getFullYear();
+  }
+}
+// ================= BILLS (บิลย้อนหลัง) =================
+document.getElementById('billsSearch').addEventListener('input', renderBillsList);
+document.getElementById('billsFromDate').addEventListener('input', renderBillsList);
+document.getElementById('billsToDate').addEventListener('input', renderBillsList);
+document.getElementById('clearBillsDateBtn').addEventListener('click', ()=>{
+  document.getElementById('billsFromDate').value = '';
+  document.getElementById('billsToDate').value = '';
+  renderBillsList();
+});
+let billsMethodFilter = '';
+document.querySelectorAll('#page-bills .report-toggle .btn-flat').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#page-bills .report-toggle .btn-flat').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    billsMethodFilter = btn.dataset.method || '';
+    renderBillsList();
+  });
+});
+function renderBillsList(){
+  const q = document.getElementById('billsSearch').value.trim().toLowerCase();
+  const fromDate = document.getElementById('billsFromDate').value;
+  const toDate = document.getElementById('billsToDate').value;
+  let list = [...sales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  if(q){
+    list = list.filter(s=>
+      generateReceiptNo(s).toLowerCase().includes(q) ||
+      s.items.some(i=>i.name.toLowerCase().includes(q))
+    );
+  }
+  if(fromDate) list = list.filter(s=>s.date >= fromDate);
+  if(toDate) list = list.filter(s=>s.date <= toDate);
+  if(billsMethodFilter) list = list.filter(s=>(s.paymentMethod||'cash')===billsMethodFilter);
+  document.getElementById('billsCount').textContent = `ทั้งหมด ${list.length} บิล`;
+  const el = document.getElementById('billsList');
+  if(!list.length){ el.innerHTML = '<div class="empty">ไม่พบบิล</div>'; return; }
+  el.innerHTML = list.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    const itemNames = s.items.map(i=>`${i.name} x${i.qty}`).join(', ');
+    const isTransfer = s.paymentMethod === 'transfer';
+    const confirmBadge = isTransfer
+      ? (s.transferConfirmed
+          ? `<span style="font-size:10px; color:var(--jade); font-weight:700;">✅ ยืนยันรับเงินแล้ว</span>`
+          : `<button class="btn-flat btn-green" data-confirmtransfer="${s.id}" style="font-size:10px; padding:4px 8px;">✅ ยืนยันรับเงินโอน</button>`)
+      : '';
+    return `<div class="tx-item">
+      <div class="prod-left" data-saleid="${s.id}" style="cursor:pointer;">
+        <div class="prod-name">${generateReceiptNo(s)} ${isTransfer ? '📱' : '💵'}</div>
+        <div class="prod-meta">${dateStr} ${s.time} น. · ${escapeHtml(itemNames)}</div>
+        ${confirmBadge ? `<div style="margin-top:4px;">${confirmBadge}</div>` : ''}
+      </div>
+      <div class="tx-amt income">+${fmt(s.total)}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-saleid]').forEach(item=>item.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===item.dataset.saleid); if(s) showReceipt(s);
+  }));
+  el.querySelectorAll('[data-confirmtransfer]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const s = sales.find(x=>x.id===btn.dataset.confirmtransfer);
+      if(s){
+        s.transferConfirmed = true;
+        saveAll();
+        renderBillsList();
+        toast('ยืนยันรับเงินโอนแล้ว ✅');
+      }
+    });
+  });
+}
+
+let lastInventoryValueRows = [];
+
+// ================= รายงานมูลค่าสต็อกคงเหลือ (ราคาทุน) แยกตามหมวดหมู่ =================
+function renderInventoryValue(){
+  const groups = {};
+  let grandTotal = 0;
+  products.forEach(p=>{
+    const cat = p.category && p.category.trim() ? p.category.trim() : 'ไม่ระบุหมวดหมู่';
+    const value = (p.stock||0) * (p.cost||0);
+    if(!groups[cat]) groups[cat] = { value:0, units:0, items:0 };
+    groups[cat].value += value;
+    groups[cat].units += (p.stock||0);
+    groups[cat].items += 1;
+    grandTotal += value;
+  });
+  const rows = Object.entries(groups).sort((a,b)=>b[1].value-a[1].value);
+  lastInventoryValueRows = rows;
+  lastInventoryValueRows.grandTotal = grandTotal;
+
+  const el = document.getElementById('inventoryValueList');
+  el.innerHTML = rows.length ? rows.map(([cat,d])=>
+    `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(cat)}</div>
+        <div class="prod-meta">${d.items} รายการสินค้า · ${d.units} ชิ้นคงเหลือ</div>
+      </div>
+      <div class="tx-amt neutral">${fmt(d.value)}</div>
+    </div>`
+  ).join('') : '<div class="empty">ยังไม่มีสินค้าในระบบ</div>';
+  document.getElementById('inventoryValueTotal').textContent = fmt(grandTotal);
+}
+
+// ================= สินค้าค้างสต็อก (Dead Stock) =================
+function getLastSaleDate(pid){
+  let last = null;
+  sales.forEach(s=>{
+    if(s.items.some(i=>i.pid===pid)){
+      if(!last || s.date > last) last = s.date;
+    }
+  });
+  return last;
+}
+let lastDeadStockRows = [];
+function renderDeadStock(){
+  const days = parseInt(document.getElementById('deadStockDays').value) || 30;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate()-days);
+  const cutoffStr = cutoff.toISOString().slice(0,10);
+  const rows = products.filter(p=>p.stock>0).map(p=>{
+    const lastSale = getLastSaleDate(p.id);
+    return { p, lastSale, daysSince: lastSale ? Math.floor((Date.now()-new Date(lastSale))/86400000) : null };
+  }).filter(r=> !r.lastSale || r.lastSale < cutoffStr)
+    .sort((a,b)=> (b.daysSince??9999) - (a.daysSince??9999));
+  lastDeadStockRows = rows;
+  const el = document.getElementById('deadStockList');
+  if(!rows.length){ el.innerHTML = '<div class="empty">ไม่มีสินค้าค้างสต็อกตามเกณฑ์นี้ 🎉</div>'; return; }
+  el.innerHTML = rows.map(r=>`
+    <div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(r.p.name)}</div>
+        <div class="prod-meta">คงเหลือ ${r.p.stock} ชิ้น · มูลค่าทุน ${fmt(r.p.stock*r.p.cost)}</div>
+      </div>
+      <div class="tx-amt expense">${r.daysSince!==null ? r.daysSince+' วัน' : 'ไม่เคยขาย'}</div>
+    </div>
+  `).join('');
+}
+document.getElementById('deadStockDays').addEventListener('change', renderDeadStock);
+document.getElementById('printDeadStockBtn').addEventListener('click', ()=>{
+  const rows = lastDeadStockRows.map(r=>({
+    left: r.p.name+' (คงเหลือ '+r.p.stock+')',
+    right: r.daysSince!==null ? r.daysSince+' วัน' : 'ไม่เคยขาย'
+  }));
+  printReport('รายงานสินค้าค้างสต็อก', rows);
+});
+
+// ================= แนะนำสั่งซื้อสินค้า (Reorder Suggestion) =================
+let lastReorderRows = [];
+function renderReorderSuggestion(){
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate()-28);
+  const cutoffStr = fourWeeksAgo.toISOString().slice(0,10);
+  const rows = [];
+  products.forEach(p=>{
+    let soldQty = 0;
+    sales.forEach(s=>{
+      if(s.date < cutoffStr) return;
+      s.items.forEach(i=>{ if(i.pid===p.id) soldQty += i.qty; });
+    });
+    const weeklyAvg = soldQty / 4;
+    const targetStock = Math.ceil(weeklyAvg * 4); // สต็อกเป้าหมาย ~4 สัปดาห์
+    const suggestQty = targetStock - p.stock;
+    if(weeklyAvg > 0 && suggestQty > 0){
+      rows.push({ p, weeklyAvg: weeklyAvg.toFixed(1), suggestQty });
+    }
+  });
+  rows.sort((a,b)=>b.suggestQty-a.suggestQty);
+  lastReorderRows = rows;
+  const el = document.getElementById('reorderList');
+  if(!rows.length){ el.innerHTML = '<div class="empty">ยังไม่มีสินค้าที่ต้องสั่งเพิ่มตามเกณฑ์นี้</div>'; return; }
+  el.innerHTML = rows.map(r=>`
+    <div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(r.p.name)}</div>
+        <div class="prod-meta">คงเหลือ ${r.p.stock} · ขายเฉลี่ย ${r.weeklyAvg} ชิ้น/สัปดาห์</div>
+      </div>
+      <div class="tx-amt income">แนะนำสั่ง ${r.suggestQty}</div>
+    </div>
+  `).join('');
+}
+document.getElementById('printReorderBtn').addEventListener('click', ()=>{
+  const rows = lastReorderRows.map(r=>({
+    left: r.p.name+' (คงเหลือ '+r.p.stock+', เฉลี่ย '+r.weeklyAvg+'/สัปดาห์)',
+    right: 'สั่ง '+r.suggestQty+' ชิ้น'
+  }));
+  printReport('ใบแนะนำสั่งซื้อสินค้า', rows);
+});
+
+// ================= ยืนยันรับเงินโอน =================
+function renderUnconfirmedTransfers(){
+  const el = document.getElementById('unconfirmedTransfersList');
+  const list = sales.filter(s=>s.paymentMethod==='transfer' && !s.transferConfirmed)
+    .sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  if(!list.length){ el.innerHTML = '<div class="empty">ไม่มีรายการค้างยืนยัน</div>'; return; }
+  el.innerHTML = list.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    return `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${generateReceiptNo(s)}</div>
+        <div class="prod-meta">${dateStr} ${s.time} น. · ${fmt(s.total)} บาท</div>
+      </div>
+      <button class="btn-flat btn-green" data-confirmtransfer="${s.id}" style="font-size:11px; padding:8px 10px;">✅ ยืนยันรับเงินแล้ว</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-confirmtransfer]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const s = sales.find(x=>x.id===btn.dataset.confirmtransfer);
+      if(s){ s.transferConfirmed = true; saveAll(); renderUnconfirmedTransfers(); toast('ยืนยันรับเงินแล้ว ✅'); }
+    });
+  });
+}
+
+// ================= ค้นหาสินค้า (ชื่อ/รหัส) พร้อมสถิติยอดขาย =================
+function renderProductSearch(){
+  const q = document.getElementById('productSearchInput').value.trim().toLowerCase();
+  const el = document.getElementById('productSearchResults');
+  if(!q){ el.innerHTML = ''; return; }
+  const matches = products.filter(p=>
+    p.name.toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q)
+  );
+  if(!matches.length){ el.innerHTML = '<div class="empty">ไม่พบสินค้าที่ค้นหา</div>'; return; }
+  el.innerHTML = matches.map(p=>{
+    let soldQty = 0, soldRevenue = 0;
+    sales.forEach(s=>s.items.forEach(i=>{
+      if(i.pid===p.id){ soldQty += i.qty; soldRevenue += i.qty*i.price; }
+    }));
+    return `<div class="prod-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(p.name)}</div>
+        <div class="prod-meta">รหัส: ${escapeHtml(p.barcode||'ไม่มี')} · ทุน ${fmt(p.cost)} · ขาย ${fmt(p.price)}</div>
+        <div class="prod-meta">คงเหลือ: ${p.stock} · ขายสะสมทั้งหมด: ${soldQty} ชิ้น (${fmt(soldRevenue)} บาท)</div>
+      </div>
+      <button class="icon-btn" data-movement="${p.id}">📜</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-movement]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openMovementModal(btn.dataset.movement));
+  });
+}
+document.getElementById('productSearchInput').addEventListener('input', renderProductSearch);
+
+// ================= ประวัติความเคลื่อนไหวสินค้า (Stock Movement) =================
+function openMovementModal(pid){
+  const p = products.find(x=>x.id===pid);
+  if(!p) return;
+  document.getElementById('movementModalTitle').textContent = `📜 ประวัติ: ${p.name}`;
+  const events = [];
+  purchases.filter(x=>x.pid===pid).forEach(x=>{
+    events.push({ date:x.date, time:x.time||'', type:'เข้า (รับสินค้า)', qty:x.qty, sign:'+', detail:x.receivedBy?('รับโดย '+x.receivedBy):'' });
+  });
+  sales.forEach(s=>s.items.forEach(i=>{
+    if(i.pid===pid) events.push({ date:s.date, time:s.time, type:'ขาย', qty:i.qty, sign:'-', detail:s.cashierName&&s.cashierName!=='-'?('พนักงาน '+s.cashierName):'' });
+  }));
+  adjustments.filter(x=>x.pid===pid).forEach(x=>{
+    events.push({ date:x.date, time:x.time||'', type:'ปรับสต็อก ('+x.reason+')', qty:Math.abs(x.diff), sign:x.diff>=0?'+':'-', detail:x.note||'' });
+  });
+  events.sort((a,b)=> (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+  const el = document.getElementById('movementList');
+  if(!events.length){ el.innerHTML = '<div class="empty">ยังไม่มีความเคลื่อนไหว</div>'; }
+  else {
+    el.innerHTML = events.map(e=>{
+      const dt = new Date(e.date);
+      const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+      const color = e.sign==='+' ? '#3fc492' : '#ec6b81';
+      return `<div class="tx-item">
+        <div class="prod-left">
+          <div class="prod-name">${e.type}</div>
+          <div class="prod-meta">${dateStr} ${e.time} น.${e.detail?' · '+escapeHtml(e.detail):''}</div>
+        </div>
+        <div style="color:${color}; font-weight:700;">${e.sign}${e.qty}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('movementModalBg').classList.add('show');
+}
+document.getElementById('closeMovementModal').addEventListener('click', ()=>{
+  document.getElementById('movementModalBg').classList.remove('show');
+});
+
+// ================= ค้นหาประวัติการรับสินค้า (คนรับ / ช่วงวันที่) =================
+function refreshImportSearchStaffSelect(){
+  const sel = document.getElementById('importSearchStaff');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">-- ทั้งหมด --</option>' +
+    staffList.map(s=>`<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+}
+document.getElementById('runImportSearchBtn').addEventListener('click', ()=>{
+  const staffFilter = document.getElementById('importSearchStaff').value;
+  const fromDate = document.getElementById('importSearchFrom').value;
+  const toDate = document.getElementById('importSearchTo').value;
+  let results = [...purchases];
+  if(staffFilter) results = results.filter(p=>p.receivedBy===staffFilter);
+  if(fromDate) results = results.filter(p=>p.date >= fromDate);
+  if(toDate) results = results.filter(p=>p.date <= toDate);
+  results.sort((a,b)=> (b.date+(b.time||'')).localeCompare(a.date+(a.time||'')));
+
+  const el = document.getElementById('importSearchResults');
+  const summaryEl = document.getElementById('importSearchSummary');
+  if(!results.length){
+    el.innerHTML = '<div class="empty">ไม่พบข้อมูลที่ค้นหา</div>';
+    summaryEl.style.display = 'none';
+    return;
+  }
+  const total = results.reduce((a,p)=>a+p.total,0);
+  document.getElementById('importSearchTotal').textContent = fmt(total);
+  summaryEl.style.display = 'block';
+  el.innerHTML = results.map(p=>{
+    const dt = new Date(p.date);
+    const dateStr = `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${toBE(dt.getFullYear())}`;
+    const timeStr = p.time ? ' ' + p.time + ' น.' : '';
+    return `<div class="tx-item">
+      <div class="prod-left">
+        <div class="prod-name">${escapeHtml(p.name)}</div>
+        <div class="prod-meta">${dateStr}${timeStr} · ${p.qty} ชิ้น × ${fmt(p.cost)} · รับโดย ${escapeHtml(p.receivedBy||'ไม่ระบุ')}${p.note?' · '+escapeHtml(p.note):''}</div>
+      </div>
+      <div class="tx-amt expense">-${fmt(p.total)}</div>
+    </div>`;
+  }).join('');
+});
+
+
+function renderReport(){
+  let title;
+  if(reportRange==='day'){
+    title = `${reportDate.getDate()} ${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
+  } else if(reportRange==='month'){
+    title = `${THAI_MONTHS[reportDate.getMonth()]} ${toBE(reportDate.getFullYear())}`;
+  } else {
+    title = `ปี พ.ศ. ${toBE(reportDate.getFullYear())}`;
+  }
+  document.getElementById('rangeTitle').textContent = title;
+
+  const rangeSales = sales.filter(s=>inRange(s.date));
+  lastRangeSales = rangeSales;
+  const rangeWithdraws = withdraws.filter(w=>inRange(w.date));
+  const income = rangeSales.reduce((a,s)=>a+s.total,0);
+  const cost = rangeSales.reduce((a,s)=>a+s.totalCost,0);
+  const qty = rangeSales.reduce((a,s)=>a+s.totalQty,0);
+  const wd = rangeWithdraws.reduce((a,w)=>a+w.amount,0);
+  const gross = income-cost;
+  const net = gross-wd;
+
+  document.getElementById('rIncome').textContent = fmt(income);
+  document.getElementById('rCost').textContent = fmt(cost);
+  document.getElementById('rWithdraw').textContent = fmt(wd);
+  document.getElementById('rQty').textContent = qty;
+  const gEl = document.getElementById('rGross');
+  gEl.textContent = (gross<0?'-':'')+fmt(Math.abs(gross));
+  gEl.className = 'val ' + (gross>=0?'profit-pos':'profit-neg');
+  const nEl = document.getElementById('rNet');
+  nEl.textContent = (net<0?'-':'')+fmt(Math.abs(net));
+  nEl.className = 'val ' + (net>=0?'profit-pos':'profit-neg');
+
+  // best sellers
+  const tally = {};
+  rangeSales.forEach(s=>s.items.forEach(i=>{
+    if(!tally[i.name]) tally[i.name] = {qty:0, total:0};
+    tally[i.name].qty += i.qty;
+    tally[i.name].total += i.qty*i.price;
+  }));
+  const sorted = Object.entries(tally).sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
+  lastBestSellers = sorted; // เก็บไว้ใช้ตอนพิมพ์
+  const medals = ['🥇','🥈','🥉'];
+  const bsEl = document.getElementById('bestSellers');
+  bsEl.innerHTML = sorted.length ? sorted.map(([name,d],idx)=>{
+    const rankLabel = medals[idx] || `#${idx+1}`;
+    return `<div class="tx-item"><div class="prod-left"><div class="prod-name">${rankLabel} ${escapeHtml(name)}</div><div class="prod-meta">ขายได้ ${d.qty} ชิ้น</div></div><div class="tx-amt income">${fmt(d.total)}</div></div>`;
+  }).join('') : '<div class="empty">ไม่มีข้อมูล</div>';
+
+  // sales list
+  const listEl = document.getElementById('rangeSalesList');
+  const sortedSales = [...rangeSales].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  listEl.innerHTML = sortedSales.length ? sortedSales.map(s=>{
+    const dt = new Date(s.date);
+    const dateStr = reportRange==='day' ? s.time : `${dt.getDate()} ${THAI_MONTHS[dt.getMonth()].slice(0,3)} ${s.time}`;
+    return `<div class="tx-item" data-saleid="${s.id}" style="cursor:pointer;"><div class="prod-left"><div class="prod-name">${dateStr} · ${s.totalQty} ชิ้น</div><div class="prod-meta">${escapeHtml(s.items.map(i=>i.name+' x'+i.qty).join(', '))}</div></div><div class="tx-amt income">+${fmt(s.total)}</div></div>`;
+  }).join('') : '<div class="empty">ไม่มีรายการขายในช่วงนี้</div>';
+  listEl.querySelectorAll('[data-saleid]').forEach(el=>el.addEventListener('click', ()=>{
+    const s = sales.find(x=>x.id===el.dataset.saleid); if(s) showReceipt(s);
+  }));
+}
+
+// ================= EXPORT / IMPORT DATA =================
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const payload = { products, sales, purchases, withdraws, adjustments };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const now = new Date();
+  a.href = url;
+  a.download = `pos_data_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  localStorage.setItem(K_LAST_BACKUP, String(Date.now()));
+  checkBackupReminder();
+  toast('ส่งออกไฟล์แล้ว บันทึกไว้ในที่ปลอดภัยด้วยนะครับ');
+});
+document.getElementById('importDataBtn').addEventListener('click', ()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const obj = JSON.parse(ev.target.result);
+      if(!confirm('นำเข้าข้อมูลและรวมกับข้อมูลเดิมหรือไม่?')) return;
+      const mergeById = (existing, incoming)=>{
+        const ids = new Set(existing.map(x=>x.id));
+        incoming.forEach(item=>{ if(!ids.has(item.id)) existing.push(item); });
+      };
+      if(Array.isArray(obj.products)) mergeById(products, obj.products);
+      if(Array.isArray(obj.sales)) mergeById(sales, obj.sales);
+      if(Array.isArray(obj.purchases)) mergeById(purchases, obj.purchases);
+      if(Array.isArray(obj.withdraws)) mergeById(withdraws, obj.withdraws);
+      if(Array.isArray(obj.adjustments)) mergeById(adjustments, obj.adjustments);
+      saveAll();
+      renderAll();
+      toast('นำเข้าข้อมูลสำเร็จ ✅');
+    }catch(err){ toast('ไฟล์ไม่ถูกต้อง'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+// ================= INIT =================
+function renderAll(){
+  refreshProductSelects();
+  renderHome();
+  renderStockList();
+  renderImportHistory();
+  renderBillsList();
+  renderReport();
+  renderInventoryValue();
+  renderDeadStock();
+  renderReorderSuggestion();
+  renderUnconfirmedTransfers();
+  renderStaffList();
+  refreshCashierSelect();
+  refreshImportSearchStaffSelect();
+  updateCashierGateUI();
+  checkBackupReminder();
+}
+renderAll();
+
+// ลงทะเบียน Service Worker เพื่อให้ติดตั้งเป็นแอปได้ (Android/Windows)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{
+      // ถ้าลงทะเบียนไม่สำเร็จ (เช่นเปิดจาก file:// หรือไม่มี sw.js) ไม่กระทบการใช้งานแอปปกติ
+    });
+  });
+}
+</script>
+</body>
+</html>
