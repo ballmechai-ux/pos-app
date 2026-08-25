@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.ballmechai_ux.twa",
+        "sha256_cert_fingerprints": ["B1:ED:EA:C9:DC:D8:9E:D5:4D:8B:9B:C7:33:80:CC:B0:50:E0:98:4C:7F:1C:61:19:6A:2C:11:5E:18:70:3F:BA"]
+      }
+    }]
